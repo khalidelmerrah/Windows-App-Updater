@@ -11,11 +11,11 @@ import ctypes
 import winsound
 import webbrowser
 from io import BytesIO
-from typing import Optional
+from typing import Optional, Dict, Tuple, List
 from PIL import Image, ImageDraw, ImageFont
 
 # ====================== App Constants ======================
-APP_NAME_VERSION = "Windows App Updater v1.1"
+APP_NAME_VERSION = "Windows App Updater v1.2"
 
 # ====================== PyInstaller resource helper ======================
 def resource_path(relative_path: str) -> str:
@@ -185,31 +185,6 @@ def make_donate_image(width=160, height=44):
     bio.seek(0)
     return tk.PhotoImage(data=bio.read())
 
-
-    # Measure text (fallbacks for older Pillow)
-    try:
-        tw, th = dr.textsize(text, font=font)          # widely supported
-    except Exception:
-        try:
-            bbox = font.getbbox(text)                  # (l,t,r,b)
-            tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        except Exception:
-            tw, th = (len(text) * font_size * 0.6, font_size)
-
-    tx = int((width - tw) / 2)
-    ty = int((height - th) / 2) - 1
-
-    # Draw text with a subtle shadow to pop on orange
-    shadow = (0, 0, 0, 80)
-    dr.text((tx + 1, ty + 1), text, font=font, fill=shadow)
-    dr.text((tx, ty), text, font=font, fill=(15, 52, 98, 255))  # navy
-
-    bio = BytesIO()
-    im.save(bio, format="PNG")
-    bio.seek(0)
-    return tk.PhotoImage(data=bio.read())
-
-
 # ====================== winget helpers ======================
 def run(cmd):
     env = os.environ.copy()
@@ -355,6 +330,9 @@ class WingetUpdaterUI:
         self.img_unchecked, self.img_checked = make_checkbox_images(16)
         self.checked_items = set()   # <- single source of truth for row selection
 
+        # map: pkg_id -> tree item id (for quick status updates)
+        self.id_to_item: Dict[str, str] = {}
+
         # ===== Header =====
         header = ttk.Frame(self.root); header.pack(fill="x", pady=(10, 0))
         ttk.Label(header, text=APP_NAME_VERSION, font=("Segoe UI", 18, "bold")).pack(side="left", padx=12)
@@ -366,8 +344,6 @@ class WingetUpdaterUI:
             self.btn_admin.config(text="Running as Admin", state="disabled")
         else:
             ToolTip(self.btn_admin, "Run the app as admin if you like to install all apps silently")
-
-        # Donate button (image) will be created later in signature row
 
         # ===== Top controls =====
         top = ttk.Frame(self.root); top.pack(fill="x", padx=12, pady=6)
@@ -392,7 +368,7 @@ class WingetUpdaterUI:
         # ===== Tree with both scrollbars =====
         tree_wrap = ttk.Frame(self.root); tree_wrap.pack(fill="both", expand=True, padx=12, pady=(8, 8))
 
-        cols = ("Name", "Id", "Current", "Available")
+        cols = ("Name", "Id", "Current", "Available", "Result")
         self.fixed_cols = cols
         self.tree = ttk.Treeview(tree_wrap, columns=cols, show="tree headings", height=22, selectmode="none")
 
@@ -402,26 +378,25 @@ class WingetUpdaterUI:
         self.tree.heading("Id",       text="Id",       anchor="w")
         self.tree.heading("Current",  text="Current",  anchor="center")
         self.tree.heading("Available",text="Available",anchor="center")
+        self.tree.heading("Result",   text="Result",   anchor="center")
 
         # Column widths
-        # --- Select column: fit header text, centered checkboxes, locked resize ---
         font = tkfont.nametofont("TkDefaultFont")
-        text_width = font.measure("Select") + 20  # padding so it doesn’t feel cramped
-        self.tree.column("#0",
-            width=text_width,
-            minwidth=text_width,
-            anchor="center",
-            stretch=False
-        )
+        text_width = font.measure("Select") + 20
+        self.tree.column("#0", width=text_width, minwidth=text_width, anchor="center", stretch=False)
 
-        # Other columns start with sensible widths; users can resize them or double-click to auto-fit
-        self.tree.column("Name",      width=520, minwidth=140, anchor="w",      stretch=False)
-        self.tree.column("Id",        width=560, minwidth=200, anchor="w",      stretch=False)
+        self.tree.column("Name",      width=480, minwidth=140, anchor="w",      stretch=False)
+        self.tree.column("Id",        width=520, minwidth=200, anchor="w",      stretch=False)
         self.tree.column("Current",   width=110, minwidth=70,  anchor="center", stretch=False)
         self.tree.column("Available", width=110, minwidth=70,  anchor="center", stretch=False)
+        self.tree.column("Result",    width=150, minwidth=110, anchor="center", stretch=False)
 
-        # Lock order of data columns
         self.tree["displaycolumns"] = self.fixed_cols
+
+        # Row tags for coloring results
+        self.tree.tag_configure("ok", background="#e8f5e9")       # light green
+        self.tree.tag_configure("fail", background="#ffebee")     # light red
+        self.tree.tag_configure("skip", background="#fff8e1")     # light amber
 
         # Scrollbars
         ysb = ttk.Scrollbar(tree_wrap, orient="vertical",   command=self.tree.yview)
@@ -453,15 +428,14 @@ class WingetUpdaterUI:
         sig_frame = ttk.Frame(self.root); sig_frame.pack(fill="x", padx=12, pady=(4, 0))
         ttk.Label(sig_frame, text="").pack(side="left", expand=True)
 
-        # Donate button image (keep a reference on self!)
-        self.donate_img = make_donate_image(width=160, height=44)   # keep a reference on self
+        self.donate_img = make_donate_image(width=160, height=44)
         self.btn_donate = tk.Button(
             sig_frame,
             image=self.donate_img,
             text="Donate",
-            compound="center",          # overlay text on the image
+            compound="center",
             font=("Segoe UI", 11, "bold"),
-            fg="#0f3462",               # navy text color
+            fg="#0f3462",
             activeforeground="#0f3462",
             bd=0,
             highlightthickness=0,
@@ -472,7 +446,6 @@ class WingetUpdaterUI:
         self.btn_donate.pack(side="right", padx=(8, 0))
         ToolTip(self.btn_donate, "Support development with a small donation")
 
-        # Flag + name to the left of the donate button (leave this as-is)
         self.flag_img = load_flag_image()
         if self.flag_img:
             tk.Label(sig_frame, image=self.flag_img).pack(side="right", padx=(8, 6))
@@ -501,13 +474,12 @@ class WingetUpdaterUI:
             self._block_header_drag = True
             return "break"
         if region == "separator":
-            # if this separator is the one to the RIGHT of #0, prevent resizing
-            col_left = self.tree.identify_column(event.x - 1)  # column to the left of separator
+            col_left = self.tree.identify_column(event.x - 1)
             if col_left == "#0":
                 self._block_resize_select = True
                 return "break"
             self._block_resize_select = False
-            return  # allow resizing for other columns
+            return
 
         col = self.tree.identify_column(event.x)
         if col == "#0":
@@ -544,25 +516,28 @@ class WingetUpdaterUI:
             return
         col_left = self.tree.identify_column(event.x - 1)
         if not col_left or col_left == "#0":
-            return  # don't auto-fit Select column
+            return
         self.autofit_column(col_left)
 
     def autofit_column(self, col_id: str):
-        """Resize column to fit its widest content + padding (like Excel)."""
         heading = self.tree.heading(col_id, "text") or ""
         font = tkfont.nametofont("TkDefaultFont")
-        pad = 24  # pixels
-
+        pad = 24
         max_px = font.measure(heading)
         for item in self.tree.get_children(""):
             val = self.tree.set(item, col_id) or ""
             px = font.measure(val)
             if px > max_px:
                 max_px = px
-
         minw = int(self.tree.column(col_id, "minwidth") or 20)
         new_w = max(minw, max_px + pad)
         self.tree.column(col_id, width=new_w)
+
+    def autofit_all(self):
+        # Auto-fit all visible data columns (not the Select/#0 column)
+        for col_id in self.fixed_cols:
+            if col_id != "#0":
+                self.autofit_column(col_id)
 
     # ----- window centering -----
     def center_on_screen(self):
@@ -578,7 +553,6 @@ class WingetUpdaterUI:
 
     # ----- donation link -----
     def open_donate_link(self):
-        # Replace with your preferred donation link:
         webbrowser.open("https://buymeacoffee.com/ilukezippo")
 
     # ====================== Loading screen ======================
@@ -660,6 +634,7 @@ class WingetUpdaterUI:
 
     def clear_tree(self):
         self.checked_items.clear()
+        self.id_to_item.clear()
         for i in self._iter_items():
             self.tree.delete(i)
 
@@ -694,18 +669,21 @@ class WingetUpdaterUI:
             self.log("No apps need updating.")
             return
 
-        # Keep order as returned by winget (do NOT sort alphabetically)
-        for p in pkgs:
+        for p in pkgs:  # keep original order
             item = self.tree.insert(
                 "", "end",
-                text="",              # #0 has no text
-                image=self.img_unchecked,  # centered via anchor and fixed width
-                values=(p["name"], p["id"], p.get("current", ""), p.get("available", "")),
+                text="",
+                image=self.img_unchecked,
+                values=(p["name"], p["id"], p.get("current", ""), p.get("available", ""), ""),
             )
+            self.id_to_item[p["id"]] = item
             self.checked_items.discard(item)
-        self.update_counter()
 
-    # ====================== Update selected (async + Cancel) ======================
+        self.update_counter()
+        # === Auto-fit all data columns after list is populated ===
+        self.autofit_all()
+
+    # ====================== Update selected (async + Cancel + per-app Result) ======================
     def update_selected_async(self):
         if getattr(self, "updating", False):
             self.cancel_requested = True
@@ -718,13 +696,13 @@ class WingetUpdaterUI:
                     pass
             return
 
-        # Gather selection from our state set
-        targets = []
+        # Gather selection with item handles
+        targets: List[Tuple[str, str, str]] = []  # (pkg_id, current, item_id)
         for item in list(self.checked_items):
             pkg_id  = self.tree.set(item, "Id")
             current = (self.tree.set(item, "Current") or "").strip()
             if pkg_id:
-                targets.append((pkg_id, current))
+                targets.append((pkg_id, current, item))
 
         if not targets:
             messagebox.showinfo("No Selection", "No apps selected for update.")
@@ -737,10 +715,13 @@ class WingetUpdaterUI:
         self.btn_update.config(text="Cancel", state="normal")
         self.log(f"Starting updates for {len(targets)} package(s)...")
 
+        # per-app results
+        results: Dict[str, str] = {}  # pkg_id -> one of: 'success','failed','skipped'
+
         self.progress_start("Updating", len(targets))
 
         def worker():
-            for pkg_id, current in targets:
+            for pkg_id, current, item in targets:
                 if self.cancel_requested:
                     break
                 self.root.after(0, lambda pid=pkg_id: self.log(f"Updating {pid} ..."))
@@ -753,14 +734,21 @@ class WingetUpdaterUI:
                     if self.include_unknown_var.get() or (not current) or (current.lower() == "unknown"):
                         cmd.insert(2, "--include-unknown")
 
+                    # --- Force UTF-8 decoding & filter spinner lines ---
+                    env = os.environ.copy()
+                    env["DOTNET_CLI_UI_LANGUAGE"] = "en"
                     self.current_proc = subprocess.Popen(
                         cmd,
                         shell=False, text=True,
                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                        encoding="utf-8", errors="replace", env=env,
                         startupinfo=_hidden_startupinfo(),
                         creationflags=CREATE_NO_WINDOW
                     )
-                    spinner_re = re.compile(r"^[\s\\/\|\-\r]+$")
+                    # Skip pure spinner/progress/box-drawing lines
+                    spinner_re = re.compile(r"^[\s\\/\|\-\r\u2580-\u259F\u2500-\u257F]+$")
+
+                    captured_lines: List[str] = []
                     while True:
                         if self.cancel_requested and self.current_proc and self.current_proc.poll() is None:
                             try:
@@ -772,12 +760,42 @@ class WingetUpdaterUI:
                             break
                         ln = line.rstrip()
                         if ln and not spinner_re.match(ln):
+                            captured_lines.append(ln)
                             self.root.after(0, lambda s=ln: self.log(s))
-                    _, err = self.current_proc.communicate()
+                    out, err = self.current_proc.communicate()
                     if err:
+                        # keep going even if there are errors (skip & continue)
                         self.root.after(0, lambda e=err: self.log(e.strip()))
+
+                    # Decide success/failure using return code + text heuristics
+                    rc = self.current_proc.returncode
+                    joined = "\n".join(captured_lines + ([out] if out else []))
+                    text_low = (joined + "\n" + (err or "")).lower()
+
+                    status: str
+                    tag: str
+                    if rc != 0 or "failed" in text_low or "error" in text_low or "0x" in text_low:
+                        status, tag = "❌ Failed", "fail"
+                    elif "no applicable update" in text_low or "no packages found" in text_low:
+                        status, tag = "⏭ No update", "skip"
+                    else:
+                        status, tag = "✅ Success", "ok"
+
+                    results[pkg_id] = "success" if tag == "ok" else ("skipped" if tag == "skip" else "failed")
+                    # update row Result cell + tag color
+                    def apply_result(it=item, st=status, tg=tag):
+                        self.tree.set(it, "Result", st)
+                        self.tree.item(it, tags=(tg,))
+                    self.root.after(0, apply_result)
+
                 except Exception as ex:
+                    # Skip this one, continue with next
+                    results[pkg_id] = "failed"
                     self.root.after(0, lambda ex=ex: self.log(f"Error: {ex}"))
+                    def apply_result_err(it=item):
+                        self.tree.set(it, "Result", "❌ Failed")
+                        self.tree.item(it, tags=("fail",))
+                    self.root.after(0, apply_result_err)
                 finally:
                     self.root.after(0, lambda pid=pkg_id: self.log(f"✔ Finished {pid}"))
                     self.root.after(0, lambda: self.progress_step(1))
@@ -785,10 +803,21 @@ class WingetUpdaterUI:
             def done():
                 canceled = self.cancel_requested
                 if canceled:
+                    # Mark remaining selected (not yet processed) as skipped/canceled
+                    for _, _, item in targets:
+                        if not self.tree.set(item, "Result"):
+                            self.tree.set(item, "Result", "— Canceled")
+                            self.tree.item(item, tags=("skip",))
                     self.log("Cancelled.")
                 else:
-                    self.log("All selected updates completed.")
-                    play_success_sound()
+                    # Summary
+                    ok = sum(1 for s in results.values() if s == "success")
+                    fail = sum(1 for s in results.values() if s == "failed")
+                    skip = sum(1 for s in results.values() if s == "skipped")
+                    self.log(f"Summary → ✅ {ok} success • ❌ {fail} failed • ⏭ {skip} skipped")
+                    if fail == 0:
+                        play_success_sound()
+
                 self.updating = False
                 self.cancel_requested = False
                 self.current_proc = None
