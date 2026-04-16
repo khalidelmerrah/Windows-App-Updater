@@ -1067,7 +1067,7 @@ class WingetUpdaterUI:
     def show_about(self):
         win = ctk.CTkToplevel(self.root)
         win.title("About")
-        win.geometry("440x380")
+        win.geometry("480x560")
         win.resizable(False, False)
         win.transient(self.root)
         win.grab_set()
@@ -1075,24 +1075,53 @@ class WingetUpdaterUI:
         win.after(200, lambda: (win.attributes('-topmost', True), win.attributes('-topmost', False), win.focus_force()))
         frame = ctk.CTkFrame(win)
         frame.pack(fill="both", expand=True, padx=16, pady=16)
-        ctk.CTkLabel(frame, text="Windows App Updater", font=("Segoe UI", 18, "bold")).pack(pady=(12, 2))
-        ctk.CTkLabel(frame, text=APP_VERSION_ONLY, font=("Segoe UI", 12)).pack(pady=(0, 8))
+        ctk.CTkLabel(frame, text="Windows App Updater", font=("Segoe UI", 18, "bold")).pack(pady=(10, 2))
+        ctk.CTkLabel(frame, text=APP_VERSION_ONLY, font=("Segoe UI", 12)).pack(pady=(0, 4))
         ctk.CTkLabel(frame, text="A modern GUI for batch-updating Windows apps\nusing winget package manager.",
-                     font=("Segoe UI", 11), justify="center", wraplength=380).pack(pady=(0, 20))
-        # Credits - use CTkButton styled as links (clickable, visible in dark mode)
-        ctk.CTkLabel(frame, text="Original author", font=("Segoe UI", 10), text_color="#888888").pack(anchor="w", padx=12)
-        ctk.CTkButton(frame, text="ilukezippo (BoYaqoub)", font=("Segoe UI", 11),
+                     font=("Segoe UI", 11), justify="center", wraplength=400).pack(pady=(0, 12))
+        # Credits
+        credits = ctk.CTkFrame(frame, fg_color="transparent")
+        credits.pack(fill="x", padx=12, pady=(0, 8))
+        ctk.CTkLabel(credits, text="Original author", font=("Segoe UI", 10), text_color="#888888").pack(anchor="w")
+        ctk.CTkButton(credits, text="ilukezippo (BoYaqoub)", font=("Segoe UI", 11),
                        fg_color="transparent", hover_color="#2a2a2a", text_color="#4a9eff",
                        anchor="w", height=24, corner_radius=3,
-                       command=lambda: webbrowser.open("https://github.com/ilukezippo/Windows-App-Updater")).pack(anchor="w", padx=12)
-        ctk.CTkLabel(frame, text="Enhanced by", font=("Segoe UI", 10), text_color="#888888").pack(anchor="w", padx=12, pady=(8, 0))
-        ctk.CTkButton(frame, text="khalidelmerrah", font=("Segoe UI", 11),
+                       command=lambda: webbrowser.open("https://github.com/ilukezippo/Windows-App-Updater")).pack(anchor="w")
+        ctk.CTkLabel(credits, text="Enhanced by", font=("Segoe UI", 10), text_color="#888888").pack(anchor="w", pady=(6, 0))
+        ctk.CTkButton(credits, text="khalidelmerrah", font=("Segoe UI", 11),
                        fg_color="transparent", hover_color="#2a2a2a", text_color="#4a9eff",
                        anchor="w", height=24, corner_radius=3,
-                       command=lambda: webbrowser.open("https://github.com/khalidelmerrah/Windows-App-Updater")).pack(anchor="w", padx=12)
+                       command=lambda: webbrowser.open("https://github.com/khalidelmerrah/Windows-App-Updater")).pack(anchor="w")
+        # Donate
+        ctk.CTkButton(frame, text="Donate to Original Author", font=("Segoe UI", 11),
+                       fg_color="#c8a02a", hover_color="#a88520", text_color="#1a1a1a",
+                       height=32, corner_radius=4, width=220,
+                       command=lambda: webbrowser.open(DONATE_PAGE)).pack(pady=(8, 12))
+        # Changelog
+        ctk.CTkLabel(frame, text="Changelog", font=("Segoe UI", 12, "bold")).pack(anchor="w", padx=12, pady=(0, 4))
+        cl = ctk.CTkTextbox(frame, height=130, font=("Consolas", 9), corner_radius=3)
+        cl.pack(fill="x", padx=12, pady=(0, 8))
+        cl.insert("1.0", """v2.4.0 - Modern UI
+  - customtkinter with Windows 11 dark/light theme
+  - Subtle buttons, dark treeview/log, themed progress bars
+  - About dialog with credits and changelog
+
+v2.3.0 - Feature Release
+  - Search/filter, column sorting, keyboard shortcuts
+  - Dark mode, exclude list, Settings dialog, portable config
+  - Update history, Retry Failed, scheduled auto-check
+  - Windows notifications, app info, export/import, restore point
+
+v2.2.2 - Security Hardening
+  - Batch script injection prevention
+  - Symlink attack protection, DLL hijacking fix
+  - UAC parameter injection fix, URL validation
+  - Log cap, thread safety, window maximize fix
+""")
+        cl.configure(state="disabled")
         # Buttons row
         btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
-        btn_frame.pack(fill="x", pady=(20, 0), padx=12)
+        btn_frame.pack(fill="x", pady=(4, 0), padx=12)
         ctk.CTkButton(btn_frame, text="Check for Update", command=self.manual_check_for_update, width=150, **_BTN).pack(side="left", padx=(0, 8))
         ctk.CTkButton(btn_frame, text="GitHub", command=lambda: webbrowser.open("https://github.com/khalidelmerrah/Windows-App-Updater"), width=100, **_BTN).pack(side="left", padx=(0, 8))
         ctk.CTkButton(btn_frame, text="Close", command=win.destroy, width=80, **_BTN).pack(side="right")
