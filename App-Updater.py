@@ -14,7 +14,7 @@ def _config_path():
 
 def load_config():
     path = _config_path()
-    defaults = {"exclude_list": [], "include_unknown": False, "dark_mode": False, "check_interval_hours": 0, "window_x": None, "window_y": None, "update_history": []}
+    defaults = {"exclude_list": [], "include_unknown": False, "dark_mode": False, "check_interval_hours": 0, "window_x": None, "window_y": None, "update_history": [], "restore_point": False}
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -156,6 +156,26 @@ def make_donate_image(w=160, h=44):
     im.save(bio, format="PNG");
     bio.seek(0);
     return tk.PhotoImage(data=bio.read())
+
+
+def _notify_windows(title, message):
+    """Show a Windows toast notification via PowerShell. Fails silently."""
+    try:
+        ps_script = f'''
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
+$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+$text = $template.GetElementsByTagName("text")
+$text.Item(0).AppendChild($template.CreateTextNode("{title}")) > $null
+$text.Item(1).AppendChild($template.CreateTextNode("{message}")) > $null
+$toast = [Windows.UI.Notifications.ToastNotification]::new($template)
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Windows App Updater").Show($toast)
+'''
+        subprocess.Popen(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script],
+            creationflags=CREATE_NO_WINDOW, startupinfo=_hidden_startupinfo()
+        )
+    except Exception:
+        pass
 
 
 def play_success_sound():
@@ -546,6 +566,7 @@ class WingetUpdaterUI:
         self.row_menu.add_command(label="Delete downloaded file(s)", command=self._menu_delete_downloads)
         self.row_menu.add_separator()
         self.row_menu.add_command(label="Exclude from updates", command=self._menu_exclude_app)
+        self.row_menu.add_command(label="App info", command=self._menu_app_info)
         self._menu_item = None
 
         def _show_menu(e, tree=self.tree):
@@ -620,8 +641,20 @@ class WingetUpdaterUI:
         self.log_visible = True
 
         self.apply_theme()
+        self._schedule_auto_check()
         self.root.after(0, self.center_on_screen)
         self.root.after(1200, self.check_latest_app_version_async)
+
+    def _schedule_auto_check(self):
+        interval = self.config.get("check_interval_hours", 0)
+        if interval > 0:
+            ms = int(interval * 3600 * 1000)
+            self.root.after(ms, self._auto_check_cycle)
+
+    def _auto_check_cycle(self):
+        if not self.updating:
+            self.check_for_updates_async()
+        self._schedule_auto_check()
 
     def apply_theme(self):
         theme = THEME_DARK if self.config.get("dark_mode", False) else THEME_LIGHT
@@ -897,6 +930,24 @@ class WingetUpdaterUI:
             save_config(self.config)
             self.apply_theme()
         ttk.Checkbutton(frame, text="Dark Mode", variable=dark_var, command=toggle_dark).pack(anchor="w", pady=(0, 12))
+        # Auto-check interval
+        interval_frame = ttk.Frame(frame)
+        interval_frame.pack(anchor="w", pady=(0, 12))
+        tk.Label(interval_frame, text="Auto-check interval: ").pack(side="left")
+        interval_var = tk.StringVar(value=str(self.config.get("check_interval_hours", 0)))
+        interval_combo = ttk.Combobox(interval_frame, textvariable=interval_var, width=12, state="readonly",
+                                       values=["0", "1", "4", "8", "24"])
+        interval_combo.pack(side="left")
+        tk.Label(interval_frame, text=" hours (0 = disabled)").pack(side="left")
+        def save_interval(*_):
+            try:
+                val = int(interval_var.get())
+            except ValueError:
+                val = 0
+            self.config["check_interval_hours"] = val
+            save_config(self.config)
+            self._schedule_auto_check()
+        interval_combo.bind("<<ComboboxSelected>>", save_interval)
         # Exclude list
         tk.Label(frame, text="Excluded Apps (won't show in update list):", font=("Segoe UI", 10, "bold")).pack(anchor="w")
         exc_frame = ttk.Frame(frame)
@@ -929,6 +980,53 @@ class WingetUpdaterUI:
         if not self.config.get("update_history"):
             hist_box.insert(tk.END, "No update history yet.\n")
         hist_box.configure(state="disabled")
+        # Restore point option
+        rp_var = tk.BooleanVar(value=self.config.get("restore_point", False))
+        def toggle_rp(*_):
+            self.config["restore_point"] = rp_var.get()
+            save_config(self.config)
+        ttk.Checkbutton(frame, text="Offer restore point before updates (requires admin)", variable=rp_var, command=toggle_rp).pack(anchor="w", pady=(0, 12))
+        # Export / Import
+        tk.Label(frame, text="App List:", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(8, 4))
+        exp_frame = ttk.Frame(frame)
+        exp_frame.pack(anchor="w", pady=(0, 8))
+        def export_apps():
+            code, out, err = run(["winget", "list", "--accept-source-agreements", "--disable-interactivity"])
+            if not out:
+                messagebox.showerror("Export", err or "Failed to get app list.")
+                return
+            path = filedialog.asksaveasfilename(title="Export App List", defaultextension=".txt",
+                                                 initialfile="installed_apps.txt",
+                                                 filetypes=[("Text file", "*.txt"), ("All files", "*.*")])
+            if path:
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(out)
+                messagebox.showinfo("Export", f"App list exported to:\n{path}")
+        def import_apps():
+            path = filedialog.askopenfilename(title="Import App List", filetypes=[("JSON/Text", "*.json *.txt"), ("All files", "*.*")])
+            if not path:
+                return
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                ids = [line.strip() for line in content.splitlines() if line.strip() and not line.startswith("#") and not line.startswith("Name")]
+                if not ids:
+                    messagebox.showinfo("Import", "No app IDs found in the file.")
+                    return
+                count = 0
+                for pid in ids:
+                    if len(pid.split()) == 1:
+                        code, out, err = run(["winget", "install", "--id", pid, "--accept-package-agreements", "--accept-source-agreements", "-h"])
+                        if code == 0:
+                            count += 1
+                            self.log(f"[Import] Installed {pid}")
+                        else:
+                            self.log(f"[Import] Failed to install {pid}: {err}")
+                messagebox.showinfo("Import", f"Installed {count} app(s).")
+            except Exception as e:
+                messagebox.showerror("Import", str(e))
+        ttk.Button(exp_frame, text="Export Installed Apps", command=export_apps).pack(side="left", padx=(0, 8))
+        ttk.Button(exp_frame, text="Install from List", command=import_apps).pack(side="left")
         ttk.Button(frame, text="Close", command=win.destroy, style="Big.TButton").pack()
         self.center_child(win)
 
@@ -1144,11 +1242,19 @@ class WingetUpdaterUI:
 
     def _on_double_click_header(self, e):
         if self.updating: return "break"
-        if self.tree.identify("region", e.x, e.y) != "separator": return
-        col = self.tree.identify_column(e.x - 1)
-        if not col or col == "#0": return
-        self.autofit_column(col);
-        self._fit_columns_to_tree()
+        region = self.tree.identify("region", e.x, e.y)
+        if region == "separator":
+            col = self.tree.identify_column(e.x - 1)
+            if not col or col == "#0": return
+            self.autofit_column(col);
+            self._fit_columns_to_tree()
+            return
+        if region in ("tree", "cell"):
+            it = self.tree.identify_row(e.y)
+            if it:
+                self._menu_item = it
+                self._menu_app_info()
+            return "break"
 
     def _toggle_row(self, item):
         if not item or self.updating: return
@@ -1361,7 +1467,7 @@ class WingetUpdaterUI:
         return sorted(set(news), key=lambda p: a.get(p, 0), reverse=True)
 
     def _winget_downloads_for_id(self, package_id: str):
-        """Fallback: scan %TEMP%\WinGet for installers belonging to this package id."""
+        r"""Fallback: scan %TEMP%\WinGet for installers belonging to this package id."""
         hits = []
         base = os.path.join(self._temp_dir(), "WinGet")
         if not (package_id and os.path.isdir(base)):
@@ -1463,6 +1569,37 @@ class WingetUpdaterUI:
                 self._all_packages = [p for p in self._all_packages if p["id"] != pid]
             self.update_counter()
             self.log(f"[Exclude] {pid} added to exclude list")
+
+    def _menu_app_info(self):
+        it = self._menu_item
+        if not it:
+            return
+        pid = self.tree.set(it, "Id")
+        if not pid:
+            return
+        self.show_loading(f"Loading info for {pid}...")
+        def worker():
+            code, out, err = run(["winget", "show", "--id", pid, "--accept-source-agreements", "--disable-interactivity"])
+            def show():
+                self.hide_loading()
+                win = tk.Toplevel(self.root)
+                win.title(f"App Info - {pid}")
+                win.resizable(True, True)
+                apply_icon_to_tlv(win, self.window_icon_path)
+                frame = ttk.Frame(win, padding=16)
+                frame.pack(fill="both", expand=True)
+                tk.Label(frame, text=pid, font=("Segoe UI", 14, "bold")).pack(anchor="w", pady=(0, 8))
+                info_box = tk.Text(frame, wrap="word", font=("Consolas", 10), width=70, height=20)
+                sb = ttk.Scrollbar(frame, orient="vertical", command=info_box.yview)
+                info_box.configure(yscrollcommand=sb.set)
+                info_box.pack(side="left", fill="both", expand=True)
+                sb.pack(side="right", fill="y")
+                info_box.insert("1.0", out if out else (err or "No information available."))
+                info_box.configure(state="disabled")
+                ttk.Button(win, text="Close", command=win.destroy, style="Big.TButton").pack(pady=8)
+                self.center_child(win)
+            self.root.after(0, show)
+        threading.Thread(target=worker, daemon=True).start()
 
     def _menu_open_downloads(self):
         it = self._menu_item
@@ -1574,6 +1711,18 @@ class WingetUpdaterUI:
                 cur = (self.tree.set(it, "Current") or "").strip()
                 if pid:
                     targets.append((pid, cur, it))
+        if targets and self.config.get("restore_point", False):
+            if messagebox.askyesno("Restore Point", "Create a system restore point before updating?\n\n(Requires admin privileges)"):
+                self.log("[Restore] Creating system restore point...")
+                try:
+                    code, out, err = run(["powershell", "-NoProfile", "-Command",
+                                          'Checkpoint-Computer -Description "Before Windows App Updater" -RestorePointType "APPLICATION_INSTALL"'])
+                    if code == 0:
+                        self.log("[Restore] System restore point created successfully.")
+                    else:
+                        self.log(f"[Restore] Failed to create restore point: {err}")
+                except Exception as e:
+                    self.log(f"[Restore] Error: {e}")
         if not targets: messagebox.showinfo("No Selection", "No apps selected for update."); return
 
         # Enable Skip only during updates and only if more than one target
@@ -1778,6 +1927,8 @@ class WingetUpdaterUI:
                 self.config.setdefault("update_history", []).append(entry)
                 self.config["update_history"] = self.config["update_history"][-50:]
                 save_config(self.config)
+                if not canceled:
+                    _notify_windows("Windows App Updater", f"Updates complete: {ok} success, {fail} failed, {skip} skipped")
                 if fail == 0 and not canceled: play_success_sound()
                 self.cancel_requested = False;
                 self.current_proc = None
