@@ -465,7 +465,7 @@ class WingetUpdaterUI:
         self.btn_admin = ctk.CTkButton(right, text="Run as Admin", command=self.run_as_admin, width=140, **_BTN)
         self.btn_admin.pack(side="right")
         if is_admin():
-            self.btn_admin.config(text="Running as Admin", state="disabled")
+            self.btn_admin.configure(text="Running as Admin", state="disabled")
         else:
             ToolTip(self.btn_admin, "Run the app as admin to install apps silently")
 
@@ -476,7 +476,7 @@ class WingetUpdaterUI:
                                        width=180);
         self.btn_check.pack(side="left")
         self.include_unknown_var = tk.BooleanVar(value=self.config.get("include_unknown", False))
-        self.chk_unknown = ctk.CTkCheckBox(row1, text="Include unknown apps", variable=self.include_unknown_var, font=("Segoe UI", 11), checkbox_width=20, checkbox_height=20, corner_radius=4);
+        self.chk_unknown = ctk.CTkCheckBox(row1, text="Include unknown apps", variable=self.include_unknown_var, font=("Segoe UI", 11), checkbox_width=16, checkbox_height=16, corner_radius=2, border_width=1);
         self.chk_unknown.pack(side="left", padx=(12, 0))
         self.btn_update = ctk.CTkButton(row1, text="Update Selected", command=self.update_selected_async,
                                         width=180, **_BTN_ACCENT);
@@ -941,7 +941,7 @@ class WingetUpdaterUI:
             self.config["dark_mode"] = dark_var.get()
             save_config(self.config)
             self.apply_theme()
-        ctk.CTkCheckBox(frame, text="Dark Mode", variable=dark_var, command=toggle_dark, font=("Segoe UI", 11), corner_radius=3).pack(anchor="w", pady=(0, 12))
+        ctk.CTkCheckBox(frame, text="Dark Mode", variable=dark_var, command=toggle_dark, font=("Segoe UI", 11), checkbox_width=16, checkbox_height=16, corner_radius=2, border_width=1).pack(anchor="w", pady=(0, 12))
         # Auto-check interval
         interval_frame = ctk.CTkFrame(frame, fg_color="transparent")
         interval_frame.pack(anchor="w", pady=(0, 12))
@@ -965,7 +965,7 @@ class WingetUpdaterUI:
         def toggle_rp(*_):
             self.config["restore_point"] = rp_var.get()
             save_config(self.config)
-        ctk.CTkCheckBox(frame, text="Create restore point before updates (admin)", variable=rp_var, command=toggle_rp, font=("Segoe UI", 11), corner_radius=3).pack(anchor="w", pady=(0, 16))
+        ctk.CTkCheckBox(frame, text="Create restore point before updates (admin)", variable=rp_var, command=toggle_rp, font=("Segoe UI", 11), checkbox_width=16, checkbox_height=16, corner_radius=2, border_width=1).pack(anchor="w", pady=(0, 16))
         # Exclude list
         ctk.CTkLabel(frame, text="Excluded Apps", font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 4))
         exc_box = ctk.CTkTextbox(frame, height=100, font=("Consolas", 10), corner_radius=3)
@@ -1137,14 +1137,14 @@ class WingetUpdaterUI:
         if self.log_visible:
             self.log_wrap.forget()
             self.btn_save_log.forget()  # hide only Save button
-            self.btn_toggle_log.config(text="Show Log")
+            self.btn_toggle_log.configure(text="Show Log")
             self.root.geometry(f"{WIN_W}x{WIN_H_COMPACT}")
             self.log_visible = False
         else:
             self.log_wrap.pack(fill="x", expand=False, padx=12, pady=(0, 10))
             self.log_wrap.configure(height=LIST_PIXELS)
             self.btn_save_log.pack(fill="x", pady=(6, 0))  # re-show Save button under Hide Log
-            self.btn_toggle_log.config(text="Hide Log")
+            self.btn_toggle_log.configure(text="Hide Log")
             self.root.geometry(f"{WIN_W}x{WIN_H_FULL}")
             self.log_visible = True
         self.root.update_idletasks()
@@ -1158,10 +1158,10 @@ class WingetUpdaterUI:
             except Exception:
                 pass
         try:
-            self.btn_admin.config(state="disabled")
+            self.btn_admin.configure(state="disabled")
         except Exception:
             pass
-        self.btn_update.config(text="Cancel", state="normal")
+        self.btn_update.configure(text="Cancel", state="normal")
         try:
             self._tree_prev_state = self.tree.cget("state")
         except Exception:
@@ -1179,16 +1179,16 @@ class WingetUpdaterUI:
                 pass
         try:
             if is_admin():
-                self.btn_admin.config(text="Running as Admin", state="disabled")
+                self.btn_admin.configure(text="Running as Admin", state="disabled")
             else:
-                self.btn_admin.config(text="Run as Admin", state="normal")
+                self.btn_admin.configure(text="Run as Admin", state="normal")
         except Exception:
             pass
         try:
             self.tree.config(state=self._tree_prev_state if hasattr(self, "_tree_prev_state") else "normal")
         except Exception:
             pass
-        self.btn_update.config(text="Update Selected", state="normal");
+        self.btn_update.configure(text="Update Selected", state="normal");
         self.updating = False
 
     # ===== Column clamping =====
@@ -1316,22 +1316,22 @@ class WingetUpdaterUI:
     # ===== Loading mini window =====
     def show_loading(self, text="Loading..."):
         if self.loading_win: return
-        w = ctk.CTkToplevel(self.root);
-        self.loading_win = w;
-        w.transient(self.root);
-        w.grab_set();
-        w.after(100, lambda: w.lift());
-        w.resizable(False, False);
+        w = ctk.CTkToplevel(self.root)
+        self.loading_win = w
+        w.transient(self.root)
+        w.resizable(False, False)
         apply_icon_to_tlv(w, self.window_icon_path)
         ctk.CTkLabel(w, text=text, font=("Segoe UI", 12, "bold")).pack(padx=20, pady=(16, 8))
-        pb = ctk.CTkProgressBar(w, orientation="horizontal", mode="indeterminate", width=280);
-        pb.pack(padx=20, pady=(0, 16));
+        pb = ctk.CTkProgressBar(w, orientation="horizontal", mode="indeterminate", width=280)
+        pb.pack(padx=20, pady=(0, 16))
         pb.start()
         w.update_idletasks()
-        x = self.root.winfo_x() + (self.root.winfo_width() - w.winfo_width()) // 2;
+        x = self.root.winfo_x() + (self.root.winfo_width() - w.winfo_width()) // 2
         y = self.root.winfo_y() + (self.root.winfo_height() - w.winfo_height()) // 2
-        w.geometry(f"+{x}+{y}");
+        w.geometry(f"+{x}+{y}")
         w.protocol("WM_DELETE_WINDOW", lambda: None)
+        w.lift()
+        w.grab_set()
 
     def hide_loading(self):
         if self.loading_win:
@@ -1669,14 +1669,14 @@ class WingetUpdaterUI:
     # ===== Check for updates & populate =====
     def check_for_updates_async(self):
         include = bool(self.include_unknown_var.get())
-        self.btn_check.config(state="disabled");
+        self.btn_check.configure(state="disabled");
         self.show_loading("Checking for updates...")
 
         def worker():
             try:
                 pkgs = get_winget_upgrades(include_unknown=include)
             except Exception as e:
-                self.root.after(0, lambda: (self.hide_loading(), self.btn_check.config(state="normal"),
+                self.root.after(0, lambda: (self.hide_loading(), self.btn_check.configure(state="normal"),
                                             self.counter_var.set("0 apps found • 0 selected"),
                                             messagebox.showerror("winget error", f"Failed to query updates:\n{e}"),
                                             self.log(f"[winget] {e}")))
@@ -1688,7 +1688,7 @@ class WingetUpdaterUI:
     def populate_tree(self, pkgs):
         self.hide_loading();
         self.clear_tree();
-        self.btn_check.config(state="normal")
+        self.btn_check.configure(state="normal")
         if not pkgs:
             self.counter_var.set("0 apps found • 0 selected")
             self.log("No apps need updating.")
@@ -1711,7 +1711,7 @@ class WingetUpdaterUI:
     def update_selected_async(self):
         if self.updating:
             self.cancel_requested = True;
-            self.btn_update.config(text="Cancelling...", state="disabled")
+            self.btn_update.configure(text="Cancelling...", state="disabled")
             if self.current_proc and self.current_proc.poll() is None:
                 try:
                     self.current_proc.terminate()
@@ -1745,7 +1745,7 @@ class WingetUpdaterUI:
         self.skip_requested = False
         self._can_skip = len(targets) > 1
         try:
-            self.btn_skip.config(state=("normal" if self._can_skip else "disabled"))
+            self.btn_skip.configure(state=("normal" if self._can_skip else "disabled"))
         except Exception:
             pass
         # Clear old results before starting new update
@@ -1915,7 +1915,7 @@ class WingetUpdaterUI:
 
                     # Re-enable Skip for the next item if allowed
                     if self._can_skip:
-                        self.root.after(0, lambda: self.btn_skip.config(state="normal"))
+                        self.root.after(0, lambda: self.btn_skip.configure(state="normal"))
 
             def done():
                 canceled = self.cancel_requested
@@ -1949,19 +1949,19 @@ class WingetUpdaterUI:
                 self.cancel_requested = False;
                 self.current_proc = None
                 try:
-                    self.btn_skip.config(state="disabled")
+                    self.btn_skip.configure(state="disabled")
                 except Exception:
                     pass
                 self._enable_controls_after_update();
                 self.progress_finish(canceled=canceled)
                 if fail > 0:
                     try:
-                        self.btn_retry.config(state="normal")
+                        self.btn_retry.configure(state="normal")
                     except Exception:
                         pass
                 else:
                     try:
-                        self.btn_retry.config(state="disabled")
+                        self.btn_retry.configure(state="disabled")
                     except Exception:
                         pass
 
@@ -1972,11 +1972,11 @@ class WingetUpdaterUI:
     def _enable_select_buttons(self, enable: bool):
         state = "normal" if enable else "disabled"
         try:
-            self.btn_sel_all.config(state=state)
+            self.btn_sel_all.configure(state=state)
         except Exception:
             pass
         try:
-            self.btn_sel_none.config(state=state)
+            self.btn_sel_none.configure(state=state)
         except Exception:
             pass
 
@@ -1986,7 +1986,7 @@ class WingetUpdaterUI:
             return
         self.skip_requested = True
         try:
-            self.btn_skip.config(state="disabled")
+            self.btn_skip.configure(state="disabled")
         except Exception:
             pass
         self.log("[Skip] Skip requested for current app...")
@@ -2008,7 +2008,7 @@ class WingetUpdaterUI:
     def _on_escape(self):
         if self.updating:
             self.cancel_requested = True
-            self.btn_update.config(text="Cancelling...", state="disabled")
+            self.btn_update.configure(text="Cancelling...", state="disabled")
             if self.current_proc and self.current_proc.poll() is None:
                 try:
                     self.current_proc.terminate()
@@ -2073,6 +2073,7 @@ class WingetUpdaterUI:
 if __name__ == "__main__":
     ctk.set_appearance_mode("system")
     ctk.set_default_color_theme("dark-blue")
+    ctk.deactivate_automatic_dpi_awareness()
     root = ctk.CTk()
     app = WingetUpdaterUI(root)
     root.mainloop()
