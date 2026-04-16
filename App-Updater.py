@@ -7,6 +7,34 @@ from PIL import Image, ImageDraw
 import urllib.request
 
 
+def _config_path():
+    if getattr(sys, "frozen", False):
+        return os.path.join(os.path.dirname(sys.executable), "config.json")
+    return os.path.join(os.path.abspath("."), "config.json")
+
+def load_config():
+    path = _config_path()
+    defaults = {"exclude_list": [], "include_unknown": False, "dark_mode": False, "check_interval_hours": 0, "window_x": None, "window_y": None}
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.loads(f.read())
+            for k, v in defaults.items():
+                if k not in data:
+                    data[k] = v
+            return data
+        except Exception:
+            pass
+    return defaults
+
+def save_config(cfg):
+    path = _config_path()
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(cfg, indent=2, ensure_ascii=False))
+    except Exception:
+        pass
+
 
 APP_VERSION_ONLY = "v2.2.1"
 APP_NAME_VERSION = f"Windows App Updater {APP_VERSION_ONLY}"
@@ -373,6 +401,7 @@ class WingetUpdaterUI:
         self.cancel_requested = False;
         self.current_proc = None;
         self._state_lock = threading.Lock()
+        self.config = load_config()
         self.loading_win = None
         self.window_icon_path = set_app_icon(self.root)
 
@@ -380,6 +409,9 @@ class WingetUpdaterUI:
         self.checked_items = set();
         self.id_to_item = {};
         self.pkg_downloads = {}
+        self._all_packages = []
+        self._sort_col = None
+        self._sort_reverse = False
 
         # Skip state
         self.skip_requested = False
@@ -404,7 +436,7 @@ class WingetUpdaterUI:
         self.btn_check = ttk.Button(row1, text="Check for Updates", command=self.check_for_updates_async,
                                     style="Big.TButton", width=width_btn);
         self.btn_check.pack(side="left")
-        self.include_unknown_var = tk.BooleanVar(value=False)
+        self.include_unknown_var = tk.BooleanVar(value=self.config.get("include_unknown", False))
         self.chk_unknown = ttk.Checkbutton(row1, text="Include unknown apps", variable=self.include_unknown_var,
                                            style="Big.TCheckbutton");
         self.chk_unknown.pack(side="left", padx=(12, 0))
@@ -431,13 +463,23 @@ class WingetUpdaterUI:
         self.btn_skip = ttk.Button(row2, text="Skip", command=self.skip_current, style="Big.TButton", state="disabled")
         self.btn_skip.pack(side="left", padx=(12, 0))
 
+        self.search_var = tk.StringVar()
+        self.search_entry = ttk.Entry(row2, textvariable=self.search_var, width=20, font=("Segoe UI", 10))
+        self.search_entry.pack(side="left", padx=(12, 0))
+        self.search_entry.insert(0, "Search...")
+        self.search_entry.bind("<FocusIn>", lambda e: self.search_entry.delete(0, tk.END) if self.search_var.get() == "Search..." else None)
+        self.search_entry.bind("<FocusOut>", lambda e: self.search_entry.insert(0, "Search...") if not self.search_var.get() else None)
+        self.search_var.trace_add("write", lambda *_: self._apply_search_filter())
+
         ttk.Label(row2, textvariable=self.counter_var).pack(side="left", padx=(12, 0))
         self.btn_about = ttk.Button(row2, text="About", command=self.show_about, style="Big.TButton");
         self.btn_about.pack(side="right")
+        self.btn_settings = ttk.Button(row2, text="Settings", command=self.show_settings, style="Big.TButton")
+        self.btn_settings.pack(side="right", padx=(0, 6))
 
         # Controls to disable during update
         self._controls_to_disable = [self.btn_check, self.chk_unknown, self.btn_sel_all, self.btn_sel_none,
-                                     self.btn_open_temp, self.btn_clear_temp, self.btn_about]
+                                     self.btn_open_temp, self.btn_clear_temp, self.btn_about, self.btn_settings]
 
         # ===== Apps list (fixed height) =====
         tree_wrap = ttk.Frame(self.root, height=LIST_PIXELS);
@@ -452,6 +494,8 @@ class WingetUpdaterUI:
         self.tree.heading("Current", text="Current", anchor="center")
         self.tree.heading("Available", text="Available", anchor="center")
         self.tree.heading("Result", text="Result", anchor="center")
+        for col in cols:
+            self.tree.heading(col, command=lambda c=col: self._on_heading_click(c))
         font = tkfont.nametofont("TkDefaultFont");
         selw = max(50, font.measure("Select") + 18)
         self.tree.column("#0", width=selw, minwidth=selw, anchor="center", stretch=False)
@@ -483,6 +527,8 @@ class WingetUpdaterUI:
         self.row_menu = tk.Menu(self.root, tearoff=0)
         self.row_menu.add_command(label="Open downloaded file(s)", command=self._menu_open_downloads)
         self.row_menu.add_command(label="Delete downloaded file(s)", command=self._menu_delete_downloads)
+        self.row_menu.add_separator()
+        self.row_menu.add_command(label="Exclude from updates", command=self._menu_exclude_app)
         self._menu_item = None
 
         def _show_menu(e, tree=self.tree):
@@ -497,6 +543,11 @@ class WingetUpdaterUI:
                 self.row_menu.grab_release()
 
         self.tree.bind("<Button-3>", _show_menu)
+
+        self.root.bind("<Control-a>", lambda e: self.select_all())
+        self.root.bind("<Control-A>", lambda e: self.select_all())
+        self.root.bind("<Return>", lambda e: self.update_selected_async() if not self.updating else None)
+        self.root.bind("<Escape>", lambda e: self._on_escape())
 
         # ===== Progress bars =====
         pbw = ttk.Frame(self.root);
@@ -793,6 +844,40 @@ class WingetUpdaterUI:
             self.root.after(0, _launch)
 
         threading.Thread(target=worker, daemon=True).start()
+
+    # =================== Settings ===================
+    def show_settings(self):
+        win = tk.Toplevel(self.root)
+        win.title("Settings")
+        win.resizable(False, False)
+        apply_icon_to_tlv(win, self.window_icon_path)
+        frame = ttk.Frame(win, padding=16)
+        frame.pack(fill="both", expand=True)
+        tk.Label(frame, text="Settings", font=("Segoe UI", 14, "bold")).pack(pady=(0, 12))
+        # Exclude list
+        tk.Label(frame, text="Excluded Apps (won't show in update list):", font=("Segoe UI", 10, "bold")).pack(anchor="w")
+        exc_frame = ttk.Frame(frame)
+        exc_frame.pack(fill="both", pady=(4, 8))
+        exc_list = tk.Listbox(exc_frame, height=8, width=50, font=("Consolas", 10))
+        exc_sb = ttk.Scrollbar(exc_frame, orient="vertical", command=exc_list.yview)
+        exc_list.configure(yscrollcommand=exc_sb.set)
+        exc_list.pack(side="left", fill="both", expand=True)
+        exc_sb.pack(side="right", fill="y")
+        for pid in self.config.get("exclude_list", []):
+            exc_list.insert(tk.END, pid)
+        def remove_selected():
+            sel = exc_list.curselection()
+            if not sel:
+                return
+            pid = exc_list.get(sel[0])
+            exc_list.delete(sel[0])
+            if pid in self.config.get("exclude_list", []):
+                self.config["exclude_list"].remove(pid)
+                save_config(self.config)
+                self.log(f"[Settings] Removed {pid} from exclude list")
+        ttk.Button(frame, text="Remove Selected", command=remove_selected, style="Big.TButton").pack(pady=(0, 12))
+        ttk.Button(frame, text="Close", command=win.destroy, style="Big.TButton").pack()
+        self.center_child(win)
 
     # =================== About ===================
     def show_about(self):
@@ -1305,6 +1390,27 @@ class WingetUpdaterUI:
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _menu_exclude_app(self):
+        it = self._menu_item
+        if not it or self.updating:
+            return
+        pid = self.tree.set(it, "Id")
+        name = self.tree.set(it, "Name")
+        if not pid:
+            return
+        if pid in self.config.get("exclude_list", []):
+            messagebox.showinfo("Exclude", f"{name} is already in the exclude list.")
+            return
+        if messagebox.askyesno("Exclude App", f"Exclude '{name}' ({pid}) from future updates?\n\nYou can manage the exclude list in Settings."):
+            self.config.setdefault("exclude_list", []).append(pid)
+            save_config(self.config)
+            self.tree.delete(it)
+            self.checked_items.discard(it)
+            if hasattr(self, '_all_packages'):
+                self._all_packages = [p for p in self._all_packages if p["id"] != pid]
+            self.update_counter()
+            self.log(f"[Exclude] {pid} added to exclude list")
+
     def _menu_open_downloads(self):
         it = self._menu_item
         if not it or self.updating:
@@ -1382,7 +1488,11 @@ class WingetUpdaterUI:
             self.log("No apps need updating.")
             self._enable_select_buttons(False)
             return
+        self._all_packages = [dict(p, result="") for p in pkgs]
+        excluded = set(self.config.get("exclude_list", []))
         for p in pkgs:
+            if p["id"] in excluded:
+                continue
             it = self.tree.insert("", "end", text="", image=self.img_unchecked,
                                   values=(p["name"], p["id"], p.get("current", ""), p.get("available", ""), ""))
             self.id_to_item[p["id"]] = it;
@@ -1637,6 +1747,62 @@ class WingetUpdaterUI:
         except Exception:
             pass
         self.log("[Skip] Skip requested for current app...")
+
+    def _on_escape(self):
+        if self.updating:
+            self.cancel_requested = True
+            self.btn_update.config(text="Cancelling...", state="disabled")
+            if self.current_proc and self.current_proc.poll() is None:
+                try:
+                    self.current_proc.terminate()
+                except Exception:
+                    pass
+
+    def _on_heading_click(self, col):
+        if self.updating:
+            return
+        if self._sort_col == col:
+            self._sort_reverse = not self._sort_reverse
+        else:
+            self._sort_col = col
+            self._sort_reverse = False
+        items = [(self.tree.set(k, col), k) for k in self.tree.get_children("")]
+        items.sort(key=lambda t: t[0].lower(), reverse=self._sort_reverse)
+        for index, (_, k) in enumerate(items):
+            self.tree.move(k, "", index)
+        # Update heading text with arrow
+        for c in self.fixed_cols:
+            text = c
+            if c == col:
+                text = f"{c} {'v' if self._sort_reverse else '^'}"
+            self.tree.heading(c, text=text)
+
+    def _apply_search_filter(self):
+        query = self.search_var.get().strip().lower()
+        if query == "search...":
+            query = ""
+        # Save checked state by package id
+        checked_ids = set()
+        for item in self.tree.get_children(""):
+            if item in self.checked_items:
+                checked_ids.add(self.tree.set(item, "Id"))
+        self.checked_items.clear()
+        self.id_to_item.clear()
+        for i in self.tree.get_children(""):
+            self.tree.delete(i)
+        for p in self._all_packages:
+            if query and query not in p["name"].lower() and query not in p["id"].lower():
+                continue
+            it = self.tree.insert("", "end", text="", image=self.img_unchecked,
+                                  values=(p["name"], p["id"], p.get("current", ""), p.get("available", ""), p.get("result", "")))
+            self.id_to_item[p["id"]] = it
+            if p["id"] in checked_ids:
+                self.checked_items.add(it)
+                self.tree.item(it, image=self.img_checked)
+                tags = set(self.tree.item(it, "tags") or ())
+                tags.add("checked")
+                self.tree.item(it, tags=tuple(tags))
+        self.update_counter()
 
     # ===== Logging =====
     def log(self, text):
