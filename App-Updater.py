@@ -944,10 +944,13 @@ class WingetUpdaterUI:
     def show_settings(self):
         win = ctk.CTkToplevel(self.root)
         win.title("Settings")
-        win.after(100, lambda: (win.lift(), win.focus_force()))
         win.resizable(False, False)
+        win.transient(self.root)
+        win.grab_set()
         apply_icon_to_tlv(win, self.window_icon_path)
-        frame = ctk.CTkScrollableFrame(win, width=460, height=520)
+        win.after(200, lambda: (win.attributes('-topmost', True), win.attributes('-topmost', False), win.focus_force()))
+        win.geometry("500x620")
+        frame = ctk.CTkFrame(win)
         frame.pack(fill="both", expand=True, padx=12, pady=12)
         ctk.CTkLabel(frame, text="Settings", font=("Segoe UI", 16, "bold")).pack(pady=(0, 16))
         is_dark = ctk.get_appearance_mode() == "Dark"
@@ -1065,7 +1068,10 @@ class WingetUpdaterUI:
         win = ctk.CTkToplevel(self.root);
         win.title("About");
         win.resizable(False, False);
+        win.transient(self.root)
+        win.grab_set()
         apply_icon_to_tlv(win, set_app_icon(win))
+        win.after(200, lambda: (win.attributes('-topmost', True), win.attributes('-topmost', False), win.focus_force()))
         frame = ctk.CTkFrame(win);
         frame.pack(fill="both", expand=True, padx=16, pady=16)
         ctk.CTkLabel(frame, text="Windows App Updater", font=("Segoe UI", 14, "bold")).pack(pady=(0, 4))
