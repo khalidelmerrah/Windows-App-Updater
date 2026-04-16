@@ -37,9 +37,9 @@ def save_config(cfg):
         pass
 
 
-APP_VERSION_ONLY = "v2.2.1"
+APP_VERSION_ONLY = "v2.4.0"
 APP_NAME_VERSION = f"Windows App Updater {APP_VERSION_ONLY}"
-DATE_APP = "2025/10/01"
+DATE_APP = "2026/04/16"
 GITHUB_RELEASES_PAGE = "https://github.com/ilukezippo/Windows-App-Updater/releases"
 GITHUB_API_LATEST = "https://api.github.com/repos/ilukezippo/Windows-App-Updater/releases/latest"
 DONATE_PAGE = "https://buymeacoffee.com/ilukezippo"
@@ -1065,56 +1065,39 @@ class WingetUpdaterUI:
 
     # =================== About ===================
     def show_about(self):
-        win = ctk.CTkToplevel(self.root);
-        win.title("About");
-        win.resizable(False, False);
+        win = ctk.CTkToplevel(self.root)
+        win.title("About")
+        win.geometry("420x400")
+        win.resizable(False, False)
         win.transient(self.root)
         win.grab_set()
         apply_icon_to_tlv(win, set_app_icon(win))
         win.after(200, lambda: (win.attributes('-topmost', True), win.attributes('-topmost', False), win.focus_force()))
-        frame = ctk.CTkFrame(win);
+        frame = ctk.CTkFrame(win)
         frame.pack(fill="both", expand=True, padx=16, pady=16)
-        ctk.CTkLabel(frame, text="Windows App Updater", font=("Segoe UI", 14, "bold")).pack(pady=(0, 4))
-        ctk.CTkLabel(frame, text="is a freeware Python App based on Windows Winget to update applications",
-                     wraplength=520, justify="center").pack(pady=(0, 8))
-        ctk.CTkLabel(frame, text=f"Version {APP_VERSION_ONLY} - {DATE_APP}").pack(pady=(0, 8))
-        row = ctk.CTkFrame(frame, fg_color="transparent");
-        row.pack()
-        ctk.CTkLabel(row, text="Author: ilukezippo (BoYaqoub)").pack(side="left")
-        flag = load_flag_image()
-        if flag:
-            tk.Label(row, image=flag).pack(side="left", padx=(6, 0))
-            win._flag = flag
-
-        # New line for email contact
-        email_row = ctk.CTkFrame(frame, fg_color="transparent");
-        email_row.pack(pady=(6, 0))
-        ctk.CTkLabel(email_row, text="For any feedback contact: ").pack(side="left")
-
-        email_lbl = tk.Label(email_row, text="ilukezippo@gmail.com",
-                             fg="#1a73e8", cursor="hand2", font=("Segoe UI", 9, "underline"))
-        email_lbl.pack(side="left")
-        email_lbl.bind("<Button-1>", lambda e: webbrowser.open("mailto:ilukezippo@gmail.com"))
-
-        link_row = ctk.CTkFrame(frame, fg_color="transparent");
-        link_row.pack(pady=(8, 0))
-        ctk.CTkLabel(link_row, text="Info and Latest Updates at ").pack(side="left")
-        link = tk.Label(link_row, text="https://github.com/ilukezippo/Windows-App-Updater",
-                        fg="#1a73e8", cursor="hand2", font=("Segoe UI", 9, "underline"))
-        link.pack(side="left");
-        link.bind("<Button-1>", lambda e: webbrowser.open("https://github.com/ilukezippo/Windows-App-Updater"))
-        # Donate INSIDE About
-        donate_img = make_donate_image(160, 44);
-        win._don = donate_img
-        tk.Button(frame, image=donate_img, text="Donate", compound="center",
-                  font=("Segoe UI", 11, "bold"), fg="#0f3462", activeforeground="#0f3462",
-                  bd=0, highlightthickness=0, cursor="hand2", relief="flat",
-                  command=lambda: webbrowser.open(DONATE_PAGE)).pack(pady=(12, 0))
-        # Manual "Check for Update" button
-        ctk.CTkButton(frame, text="Check for Update", command=self.manual_check_for_update, width=160).pack(
-            pady=(6, 6))
-
-        ctk.CTkButton(frame, text="Close", command=win.destroy, width=100).pack(pady=(10, 0))
+        ctk.CTkLabel(frame, text="Windows App Updater", font=("Segoe UI", 18, "bold")).pack(pady=(8, 2))
+        ctk.CTkLabel(frame, text=f"{APP_VERSION_ONLY}", font=("Segoe UI", 12)).pack(pady=(0, 8))
+        ctk.CTkLabel(frame, text="A modern GUI for batch-updating Windows apps\nusing winget package manager.",
+                     font=("Segoe UI", 11), justify="center", wraplength=360).pack(pady=(0, 16))
+        # Credits section
+        credits_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        credits_frame.pack(fill="x", pady=(0, 8))
+        ctk.CTkLabel(credits_frame, text="Original author:", font=("Segoe UI", 10), text_color="#888888").pack(anchor="w")
+        orig_link = tk.Label(credits_frame, text="ilukezippo (BoYaqoub)", fg="#4a9eff", cursor="hand2",
+                             font=("Segoe UI", 10, "underline"), bg=credits_frame._apply_appearance_mode(credits_frame.cget("fg_color")))
+        orig_link.pack(anchor="w")
+        orig_link.bind("<Button-1>", lambda e: webbrowser.open("https://github.com/ilukezippo/Windows-App-Updater"))
+        ctk.CTkLabel(credits_frame, text="Enhanced by:", font=("Segoe UI", 10), text_color="#888888").pack(anchor="w", pady=(6, 0))
+        fork_link = tk.Label(credits_frame, text="khalidelmerrah", fg="#4a9eff", cursor="hand2",
+                             font=("Segoe UI", 10, "underline"), bg=credits_frame._apply_appearance_mode(credits_frame.cget("fg_color")))
+        fork_link.pack(anchor="w")
+        fork_link.bind("<Button-1>", lambda e: webbrowser.open("https://github.com/khalidelmerrah/Windows-App-Updater"))
+        # Buttons
+        btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        btn_frame.pack(fill="x", pady=(12, 0))
+        ctk.CTkButton(btn_frame, text="Check for Update", command=self.manual_check_for_update, width=150, **_BTN).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(btn_frame, text="GitHub", command=lambda: webbrowser.open("https://github.com/khalidelmerrah/Windows-App-Updater"), width=100, **_BTN).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(btn_frame, text="Close", command=win.destroy, width=80, **_BTN).pack(side="right")
         self.center_child(win)
 
     def center_child(self, tlv):
