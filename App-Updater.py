@@ -476,7 +476,7 @@ class WingetUpdaterUI:
                                        width=180);
         self.btn_check.pack(side="left")
         self.include_unknown_var = tk.BooleanVar(value=self.config.get("include_unknown", False))
-        self.chk_unknown = ctk.CTkCheckBox(row1, text="Include unknown apps", variable=self.include_unknown_var, font=("Segoe UI", 11), checkbox_width=16, checkbox_height=16, corner_radius=2, border_width=1);
+        self.chk_unknown = ctk.CTkCheckBox(row1, text="Include unknown apps", variable=self.include_unknown_var, font=("Segoe UI", 11), checkbox_width=13, checkbox_height=13, corner_radius=2, border_width=1);
         self.chk_unknown.pack(side="left", padx=(12, 0))
         self.btn_update = ctk.CTkButton(row1, text="Update Selected", command=self.update_selected_async,
                                         width=180, **_BTN_ACCENT);
@@ -957,7 +957,7 @@ class WingetUpdaterUI:
             self.config["dark_mode"] = dark_var.get()
             save_config(self.config)
             self.apply_theme()
-        ctk.CTkCheckBox(frame, text="Dark Mode", variable=dark_var, command=toggle_dark, font=("Segoe UI", 11), checkbox_width=16, checkbox_height=16, corner_radius=2, border_width=1).pack(anchor="w", pady=(0, 12))
+        ctk.CTkCheckBox(frame, text="Dark Mode", variable=dark_var, command=toggle_dark, font=("Segoe UI", 11), checkbox_width=13, checkbox_height=13, corner_radius=2, border_width=1).pack(anchor="w", pady=(0, 12))
         # Auto-check interval
         interval_frame = ctk.CTkFrame(frame, fg_color="transparent")
         interval_frame.pack(anchor="w", pady=(0, 12))
@@ -981,7 +981,7 @@ class WingetUpdaterUI:
         def toggle_rp(*_):
             self.config["restore_point"] = rp_var.get()
             save_config(self.config)
-        ctk.CTkCheckBox(frame, text="Create restore point before updates (admin)", variable=rp_var, command=toggle_rp, font=("Segoe UI", 11), checkbox_width=16, checkbox_height=16, corner_radius=2, border_width=1).pack(anchor="w", pady=(0, 16))
+        ctk.CTkCheckBox(frame, text="Create restore point before updates (admin)", variable=rp_var, command=toggle_rp, font=("Segoe UI", 11), checkbox_width=13, checkbox_height=13, corner_radius=2, border_width=1).pack(anchor="w", pady=(0, 16))
         # Exclude list
         ctk.CTkLabel(frame, text="Excluded Apps", font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 4))
         exc_box = ctk.CTkTextbox(frame, height=100, font=("Consolas", 10), corner_radius=3)
