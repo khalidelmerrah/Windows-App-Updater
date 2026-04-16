@@ -144,5 +144,5 @@ This fork includes the following security fixes over the original:
 
 ## Credits
 
-- **Original author:** [ilukezippo (BoYaqoub)](https://github.com/ilukezippo/Windows-App-Updater)
-- **Security hardening, features & UI:** [khalidelmerrah](https://github.com/khalidelmerrah/Windows-App-Updater)
+- **Original author:** [ilukezippo (BoYaqoub)](https://github.com/ilukezippo/Windows-App-Updater) :kuwait:
+- **Security hardening, features & UI:** [khalidelmerrah](https://github.com/khalidelmerrah/Windows-App-Updater) :morocco:
