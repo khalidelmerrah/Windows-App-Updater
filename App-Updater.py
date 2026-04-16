@@ -669,15 +669,31 @@ class WingetUpdaterUI:
         self.tree.tag_configure("skip", background=theme["skip"])
         self.tree.tag_configure("cancel", background=theme["cancel"])
         self.tree.tag_configure("checked", background=theme["checked"])
-        # Treeview styling
+        # Treeview styling - force colors on the ttk theme
         style = ttk.Style()
-        style.configure("Treeview", background=theme["tree_bg"], foreground=theme["tree_fg"],
-                         fieldbackground=theme["tree_bg"], font=("Segoe UI", 10))
-        style.configure("Treeview.Heading", background=theme["button_bg"], foreground=theme["fg"],
-                         font=("Segoe UI", 10, "bold"))
-        style.map("Treeview", background=[("selected", theme["tree_sel"])])
+        style.theme_use("default")
+        style.configure("Treeview",
+                         background=theme["tree_bg"], foreground=theme["tree_fg"],
+                         fieldbackground=theme["tree_bg"], font=("Segoe UI", 10),
+                         rowheight=24)
+        style.configure("Treeview.Heading",
+                         background=theme["button_bg"], foreground=theme["fg"],
+                         font=("Segoe UI", 10, "bold"), relief="flat")
+        style.map("Treeview",
+                   background=[("selected", theme["tree_sel"])],
+                   foreground=[("selected", "#ffffff")])
+        style.map("Treeview.Heading",
+                   background=[("active", theme["tree_sel"])])
+        # Scrollbar styling
+        style.configure("Vertical.TScrollbar",
+                         background=theme["button_bg"], troughcolor=theme["bg"],
+                         arrowcolor=theme["fg"])
+        style.configure("Horizontal.TScrollbar",
+                         background=theme["button_bg"], troughcolor=theme["bg"],
+                         arrowcolor=theme["fg"])
         # Log box
-        self.log_box.configure(bg=theme["log_bg"], fg=theme["log_fg"], insertbackground=theme["fg"])
+        self.log_box.configure(bg=theme["log_bg"], fg=theme["log_fg"],
+                                insertbackground=theme["fg"], selectbackground=theme["tree_sel"])
         # Progress bars - use subtle colors
         bar_color = "#4a9eff" if is_dark else "#0078d4"
         bar_bg = "#3b3b3b" if is_dark else "#e0e0e0"
@@ -1318,6 +1334,7 @@ class WingetUpdaterUI:
         if self.loading_win: return
         w = ctk.CTkToplevel(self.root)
         self.loading_win = w
+        w.title("Windows App Updater")
         w.transient(self.root)
         w.resizable(False, False)
         apply_icon_to_tlv(w, self.window_icon_path)
