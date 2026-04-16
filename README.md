@@ -9,6 +9,8 @@ A modern GUI tool for batch-updating installed Windows applications using [winge
 ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey)
 ![License](https://img.shields.io/badge/License-Freeware-green)
 
+![Screenshot](screenshot.png)
+
 ---
 
 ## Download
