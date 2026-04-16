@@ -5,6 +5,7 @@ import sys, os, ctypes, winsound, webbrowser, tempfile, shutil
 from io import BytesIO
 from PIL import Image, ImageDraw
 import urllib.request
+import customtkinter as ctk
 
 
 def _config_path():
@@ -428,10 +429,6 @@ class WingetUpdaterUI:
         self.root.title(APP_NAME_VERSION)
         self.root.geometry(f"{WIN_W}x{WIN_H_FULL}");
         self.root.minsize(WIN_W, WIN_H_COMPACT)
-        self.style = ttk.Style(self.root)
-        self.style.configure("Big.TButton", padding=(14, 8), font=("Segoe UI", 10, "bold"))
-        self.style.configure("Big.TCheckbutton", padding=(8, 6), font=("Segoe UI", 10))
-
         self.updating = False;
         self.cancel_requested = False;
         self.current_proc = None;
@@ -452,12 +449,12 @@ class WingetUpdaterUI:
         self.skip_requested = False
         self._can_skip = False
         # ===== Header =====
-        header = ttk.Frame(self.root);
+        header = ctk.CTkFrame(self.root, fg_color="transparent");
         header.pack(fill="x", pady=(10, 0))
-        ttk.Label(header, text=APP_NAME_VERSION, font=("Segoe UI", 18, "bold")).pack(side="left", padx=12)
-        right = ttk.Frame(header);
+        ctk.CTkLabel(header, text=APP_NAME_VERSION, font=("Segoe UI", 18, "bold")).pack(side="left", padx=12)
+        right = ctk.CTkFrame(header, fg_color="transparent");
         right.pack(side="right", padx=12)
-        self.btn_admin = ttk.Button(right, text="Run as Admin", command=self.run_as_admin, style="Big.TButton")
+        self.btn_admin = ctk.CTkButton(right, text="Run as Admin", command=self.run_as_admin, width=140)
         self.btn_admin.pack(side="right")
         if is_admin():
             self.btn_admin.config(text="Running as Admin", state="disabled")
@@ -465,53 +462,48 @@ class WingetUpdaterUI:
             ToolTip(self.btn_admin, "Run the app as admin to install apps silently")
 
         # ===== Row 1: Check - Include - Update - Clear - Open =====
-        row1 = ttk.Frame(self.root);
+        row1 = ctk.CTkFrame(self.root, fg_color="transparent");
         row1.pack(fill="x", padx=12, pady=6)
-        width_btn = max(len("Check for Updates"), len("Update Selected")) + 2
-        self.btn_check = ttk.Button(row1, text="Check for Updates", command=self.check_for_updates_async,
-                                    style="Big.TButton", width=width_btn);
+        self.btn_check = ctk.CTkButton(row1, text="Check for Updates", command=self.check_for_updates_async,
+                                       width=180);
         self.btn_check.pack(side="left")
         self.include_unknown_var = tk.BooleanVar(value=self.config.get("include_unknown", False))
-        self.chk_unknown = ttk.Checkbutton(row1, text="Include unknown apps", variable=self.include_unknown_var,
-                                           style="Big.TCheckbutton");
+        self.chk_unknown = ctk.CTkCheckBox(row1, text="Include unknown apps", variable=self.include_unknown_var);
         self.chk_unknown.pack(side="left", padx=(12, 0))
-        self.btn_update = ttk.Button(row1, text="Update Selected", command=self.update_selected_async,
-                                     style="Big.TButton", width=width_btn);
+        self.btn_update = ctk.CTkButton(row1, text="Update Selected", command=self.update_selected_async,
+                                        width=180);
         self.btn_update.pack(side="left", padx=(12, 0))
-        self.btn_open_temp = ttk.Button(row1, text="Open Temp", command=self.open_temp, style="Big.TButton");
+        self.btn_open_temp = ctk.CTkButton(row1, text="Open Temp", command=self.open_temp, width=120);
         self.btn_open_temp.pack(side="right", padx=(12, 0))
-        self.btn_clear_temp = ttk.Button(row1, text="Clear Temp", command=self.clear_temp_async, style="Big.TButton");
+        self.btn_clear_temp = ctk.CTkButton(row1, text="Clear Temp", command=self.clear_temp_async, width=120);
         self.btn_clear_temp.pack(side="right", padx=(12, 0))
         ToolTip(self.btn_clear_temp, "Delete unnecessary temporary installer files downloaded by apps.\n"
                                      "Safe to use - running apps won't be affected.")
 
         # ===== Row 2: Select All . Select None . Counter . About (right) =====
-        row2 = ttk.Frame(self.root);
+        row2 = ctk.CTkFrame(self.root, fg_color="transparent");
         row2.pack(fill="x", padx=12, pady=(0, 6))
-        self.btn_sel_all = ttk.Button(row2, text="Select All", command=self.select_all, style="Big.TButton",
-                                      state="disabled");
+        self.btn_sel_all = ctk.CTkButton(row2, text="Select All", command=self.select_all, width=100,
+                                         state="disabled");
         self.btn_sel_all.pack(side="left")
-        self.btn_sel_none = ttk.Button(row2, text="Select None", command=self.select_none, style="Big.TButton",
-                                       state="disabled");
+        self.btn_sel_none = ctk.CTkButton(row2, text="Select None", command=self.select_none, width=100,
+                                          state="disabled");
         self.btn_sel_none.pack(side="left", padx=(6, 0))
         self.counter_var = tk.StringVar(value="0 apps found • 0 selected")
-        self.btn_skip = ttk.Button(row2, text="Skip", command=self.skip_current, style="Big.TButton", state="disabled")
+        self.btn_skip = ctk.CTkButton(row2, text="Skip", command=self.skip_current, width=80, state="disabled")
         self.btn_skip.pack(side="left", padx=(12, 0))
-        self.btn_retry = ttk.Button(row2, text="Retry Failed", command=self._retry_failed, style="Big.TButton", state="disabled")
+        self.btn_retry = ctk.CTkButton(row2, text="Retry Failed", command=self._retry_failed, width=120, state="disabled")
         self.btn_retry.pack(side="left", padx=(6, 0))
 
         self.search_var = tk.StringVar()
-        self.search_entry = ttk.Entry(row2, textvariable=self.search_var, width=20, font=("Segoe UI", 10))
+        self.search_entry = ctk.CTkEntry(row2, textvariable=self.search_var, width=160, placeholder_text="Search...")
         self.search_entry.pack(side="left", padx=(12, 0))
-        self.search_entry.insert(0, "Search...")
-        self.search_entry.bind("<FocusIn>", lambda e: self.search_entry.delete(0, tk.END) if self.search_var.get() == "Search..." else None)
-        self.search_entry.bind("<FocusOut>", lambda e: self.search_entry.insert(0, "Search...") if not self.search_var.get() else None)
         self.search_var.trace_add("write", lambda *_: self._apply_search_filter())
 
-        ttk.Label(row2, textvariable=self.counter_var).pack(side="left", padx=(12, 0))
-        self.btn_about = ttk.Button(row2, text="About", command=self.show_about, style="Big.TButton");
+        ctk.CTkLabel(row2, textvariable=self.counter_var).pack(side="left", padx=(12, 0))
+        self.btn_about = ctk.CTkButton(row2, text="About", command=self.show_about, width=80);
         self.btn_about.pack(side="right")
-        self.btn_settings = ttk.Button(row2, text="Settings", command=self.show_settings, style="Big.TButton")
+        self.btn_settings = ctk.CTkButton(row2, text="Settings", command=self.show_settings, width=80)
         self.btn_settings.pack(side="right", padx=(0, 6))
 
         # Controls to disable during update
@@ -588,18 +580,19 @@ class WingetUpdaterUI:
         self.root.bind("<Escape>", lambda e: self._on_escape())
 
         # ===== Progress bars =====
-        pbw = ttk.Frame(self.root);
+        pbw = ctk.CTkFrame(self.root, fg_color="transparent");
         pbw.pack(fill="x", padx=12, pady=(0, 4))
-        self.pb_label = ttk.Label(pbw, text="Update");
+        self.pb_label = ctk.CTkLabel(pbw, text="Update");
         self.pb_label.pack(side="left")
-        self.pb = ttk.Progressbar(pbw, orient="horizontal", mode="determinate");
-        self.pb.pack(fill="x", expand=True, padx=10)
-        pbw2 = ttk.Frame(self.root);
+        self.pb = ctk.CTkProgressBar(pbw, orientation="horizontal", mode="determinate");
+        self.pb.pack(fill="x", expand=True, padx=10, pady=5)
+        pbw2 = ctk.CTkFrame(self.root, fg_color="transparent");
         pbw2.pack(fill="x", padx=12, pady=(0, 8))
-        self.pb2_label = ttk.Label(pbw2, text="Download");
+        self.pb2_label = ctk.CTkLabel(pbw2, text="Download");
         self.pb2_label.pack(side="left")
-        self.pb2 = ttk.Progressbar(pbw2, orient="horizontal", mode="determinate", maximum=100, value=0);
-        self.pb2.pack(fill="x", expand=True, padx=10)
+        self.pb2 = ctk.CTkProgressBar(pbw2, orientation="horizontal", mode="determinate");
+        self.pb2.pack(fill="x", expand=True, padx=10, pady=5)
+        self.pb2.set(0)
 
         # Spinner state
         self._spin_job = None;
@@ -611,20 +604,16 @@ class WingetUpdaterUI:
 
         # ===== Log (fixed height, equals list) =====
         # Right-side log controls (Hide always visible, Save toggled)
-        log_ctrls = ttk.Frame(self.root)
+        log_ctrls = ctk.CTkFrame(self.root, fg_color="transparent")
         log_ctrls.pack(side="right", padx=12, pady=(0, 2), anchor="ne")
 
-        self.btn_toggle_log = ttk.Button(log_ctrls, text="Hide Log",
-                                         command=self.toggle_log, style="Big.TButton")
+        self.btn_toggle_log = ctk.CTkButton(log_ctrls, text="Hide Log",
+                                            command=self.toggle_log, width=160)
         self.btn_toggle_log.pack(fill="x")
 
-        self.btn_save_log = ttk.Button(log_ctrls, text="Save / Export Log",
-                                       command=self.save_export_log, style="Big.TButton")
+        self.btn_save_log = ctk.CTkButton(log_ctrls, text="Save / Export Log",
+                                          command=self.save_export_log, width=160)
         self.btn_save_log.pack(fill="x", pady=(6, 0))
-        # Ensure both buttons have same width
-        btn_width = max(len("Hide Log"), len("Save / Export Log")) + 2
-        self.btn_toggle_log.config(width=btn_width)
-        self.btn_save_log.config(width=btn_width)
 
         self.log_wrap = ttk.Frame(self.root, height=LIST_PIXELS);
         self.log_wrap.pack(fill="x", expand=False, padx=12, pady=(0, 10));
@@ -657,22 +646,20 @@ class WingetUpdaterUI:
         self._schedule_auto_check()
 
     def apply_theme(self):
-        theme = THEME_DARK if self.config.get("dark_mode", False) else THEME_LIGHT
-        self.root.configure(bg=theme["bg"])
-        style = self.style
-        style.configure("TFrame", background=theme["bg"])
-        style.configure("TLabel", background=theme["bg"], foreground=theme["fg"])
-        style.configure("TCheckbutton", background=theme["bg"], foreground=theme["fg"])
-        style.configure("Big.TButton", background=theme["button_bg"])
-        style.configure("Treeview", background=theme["tree_bg"], foreground=theme["tree_fg"],
-                         fieldbackground=theme["tree_bg"])
+        mode = "dark" if self.config.get("dark_mode", False) else "light"
+        ctk.set_appearance_mode(mode)
+        # Update tree colors (still tkinter widget)
+        theme = THEME_DARK if mode == "dark" else THEME_LIGHT
+        self.tree.tag_configure("ok", background=theme["ok"])
+        self.tree.tag_configure("fail", background=theme["fail"])
+        self.tree.tag_configure("skip", background=theme["skip"])
+        self.tree.tag_configure("cancel", background=theme["cancel"])
+        self.tree.tag_configure("checked", background=theme["checked"])
+        style = ttk.Style()
+        style.configure("Treeview", background=theme["tree_bg"], foreground=theme["tree_fg"], fieldbackground=theme["tree_bg"])
         style.configure("Treeview.Heading", background=theme["button_bg"], foreground=theme["fg"])
         style.map("Treeview", background=[("selected", theme["tree_sel"])])
         self.log_box.configure(bg=theme["log_bg"], fg=theme["log_fg"], insertbackground=theme["fg"])
-        self.search_entry.configure(style="TEntry")
-        style.configure("TEntry", fieldbackground=theme["entry_bg"], foreground=theme["entry_fg"])
-        for k in ("ok", "fail", "skip", "cancel", "checked"):
-            self.tree.tag_configure(k, background=theme[k])
 
     def manual_check_for_update(self):
         # Show a tiny loader so the About window stays responsive
@@ -801,7 +788,7 @@ class WingetUpdaterUI:
             try:
                 def _on_pct(p):
                     self.root.after(0, lambda: (
-                        self.pb2.configure(value=p),
+                        self.pb2.set(p / 100.0),
                         self.pb2_label.configure(text=f"Downloading: {p}%")
                     ))
 
@@ -916,41 +903,40 @@ class WingetUpdaterUI:
 
     # =================== Settings ===================
     def show_settings(self):
-        win = tk.Toplevel(self.root)
+        win = ctk.CTkToplevel(self.root)
         win.title("Settings")
         win.resizable(False, False)
         apply_icon_to_tlv(win, self.window_icon_path)
-        frame = ttk.Frame(win, padding=16)
-        frame.pack(fill="both", expand=True)
-        tk.Label(frame, text="Settings", font=("Segoe UI", 14, "bold")).pack(pady=(0, 12))
+        frame = ctk.CTkFrame(win)
+        frame.pack(fill="both", expand=True, padx=16, pady=16)
+        ctk.CTkLabel(frame, text="Settings", font=("Segoe UI", 14, "bold")).pack(pady=(0, 12))
         # Dark mode toggle
         dark_var = tk.BooleanVar(value=self.config.get("dark_mode", False))
         def toggle_dark(*_):
             self.config["dark_mode"] = dark_var.get()
             save_config(self.config)
             self.apply_theme()
-        ttk.Checkbutton(frame, text="Dark Mode", variable=dark_var, command=toggle_dark).pack(anchor="w", pady=(0, 12))
+        ctk.CTkCheckBox(frame, text="Dark Mode", variable=dark_var, command=toggle_dark).pack(anchor="w", pady=(0, 12))
         # Auto-check interval
-        interval_frame = ttk.Frame(frame)
+        interval_frame = ctk.CTkFrame(frame, fg_color="transparent")
         interval_frame.pack(anchor="w", pady=(0, 12))
-        tk.Label(interval_frame, text="Auto-check interval: ").pack(side="left")
+        ctk.CTkLabel(interval_frame, text="Auto-check interval: ").pack(side="left")
         interval_var = tk.StringVar(value=str(self.config.get("check_interval_hours", 0)))
-        interval_combo = ttk.Combobox(interval_frame, textvariable=interval_var, width=12, state="readonly",
-                                       values=["0", "1", "4", "8", "24"])
-        interval_combo.pack(side="left")
-        tk.Label(interval_frame, text=" hours (0 = disabled)").pack(side="left")
-        def save_interval(*_):
+        def save_interval(choice):
             try:
-                val = int(interval_var.get())
+                val = int(choice)
             except ValueError:
                 val = 0
             self.config["check_interval_hours"] = val
             save_config(self.config)
             self._schedule_auto_check()
-        interval_combo.bind("<<ComboboxSelected>>", save_interval)
+        interval_combo = ctk.CTkComboBox(interval_frame, variable=interval_var, width=100, state="readonly",
+                                          values=["0", "1", "4", "8", "24"], command=save_interval)
+        interval_combo.pack(side="left")
+        ctk.CTkLabel(interval_frame, text=" hours (0 = disabled)").pack(side="left")
         # Exclude list
-        tk.Label(frame, text="Excluded Apps (won't show in update list):", font=("Segoe UI", 10, "bold")).pack(anchor="w")
-        exc_frame = ttk.Frame(frame)
+        ctk.CTkLabel(frame, text="Excluded Apps (won't show in update list):", font=("Segoe UI", 10, "bold")).pack(anchor="w")
+        exc_frame = ctk.CTkFrame(frame, fg_color="transparent")
         exc_frame.pack(fill="both", pady=(4, 8))
         exc_list = tk.Listbox(exc_frame, height=8, width=50, font=("Consolas", 10))
         exc_sb = ttk.Scrollbar(exc_frame, orient="vertical", command=exc_list.yview)
@@ -969,9 +955,9 @@ class WingetUpdaterUI:
                 self.config["exclude_list"].remove(pid)
                 save_config(self.config)
                 self.log(f"[Settings] Removed {pid} from exclude list")
-        ttk.Button(frame, text="Remove Selected", command=remove_selected, style="Big.TButton").pack(pady=(0, 12))
+        ctk.CTkButton(frame, text="Remove Selected", command=remove_selected, width=160).pack(pady=(0, 12))
         # Update history
-        tk.Label(frame, text="Update History (last 10):", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(8, 4))
+        ctk.CTkLabel(frame, text="Update History (last 10):", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(8, 4))
         hist_box = tk.Text(frame, height=6, width=50, font=("Consolas", 9), state="disabled")
         hist_box.pack(fill="x", pady=(0, 8))
         hist_box.configure(state="normal")
@@ -985,10 +971,10 @@ class WingetUpdaterUI:
         def toggle_rp(*_):
             self.config["restore_point"] = rp_var.get()
             save_config(self.config)
-        ttk.Checkbutton(frame, text="Offer restore point before updates (requires admin)", variable=rp_var, command=toggle_rp).pack(anchor="w", pady=(0, 12))
+        ctk.CTkCheckBox(frame, text="Offer restore point before updates (requires admin)", variable=rp_var, command=toggle_rp).pack(anchor="w", pady=(0, 12))
         # Export / Import
-        tk.Label(frame, text="App List:", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(8, 4))
-        exp_frame = ttk.Frame(frame)
+        ctk.CTkLabel(frame, text="App List:", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(8, 4))
+        exp_frame = ctk.CTkFrame(frame, fg_color="transparent")
         exp_frame.pack(anchor="w", pady=(0, 8))
         def export_apps():
             code, out, err = run(["winget", "list", "--accept-source-agreements", "--disable-interactivity"])
@@ -1025,44 +1011,44 @@ class WingetUpdaterUI:
                 messagebox.showinfo("Import", f"Installed {count} app(s).")
             except Exception as e:
                 messagebox.showerror("Import", str(e))
-        ttk.Button(exp_frame, text="Export Installed Apps", command=export_apps).pack(side="left", padx=(0, 8))
-        ttk.Button(exp_frame, text="Install from List", command=import_apps).pack(side="left")
-        ttk.Button(frame, text="Close", command=win.destroy, style="Big.TButton").pack()
+        ctk.CTkButton(exp_frame, text="Export Installed Apps", command=export_apps, width=160).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(exp_frame, text="Install from List", command=import_apps, width=140).pack(side="left")
+        ctk.CTkButton(frame, text="Close", command=win.destroy, width=100).pack()
         self.center_child(win)
 
     # =================== About ===================
     def show_about(self):
-        win = tk.Toplevel(self.root);
+        win = ctk.CTkToplevel(self.root);
         win.title("About");
         win.resizable(False, False);
         apply_icon_to_tlv(win, set_app_icon(win))
-        frame = ttk.Frame(win, padding=16);
-        frame.pack(fill="both", expand=True)
-        tk.Label(frame, text="Windows App Updater", font=("Segoe UI", 14, "bold")).pack(pady=(0, 4))
-        tk.Label(frame, text="is a freeware Python App based on Windows Winget to update applications",
-                 wraplength=520, justify="center").pack(pady=(0, 8))
-        tk.Label(frame, text=f"Version {APP_VERSION_ONLY} - {DATE_APP}").pack(pady=(0, 8))
-        row = ttk.Frame(frame);
+        frame = ctk.CTkFrame(win);
+        frame.pack(fill="both", expand=True, padx=16, pady=16)
+        ctk.CTkLabel(frame, text="Windows App Updater", font=("Segoe UI", 14, "bold")).pack(pady=(0, 4))
+        ctk.CTkLabel(frame, text="is a freeware Python App based on Windows Winget to update applications",
+                     wraplength=520, justify="center").pack(pady=(0, 8))
+        ctk.CTkLabel(frame, text=f"Version {APP_VERSION_ONLY} - {DATE_APP}").pack(pady=(0, 8))
+        row = ctk.CTkFrame(frame, fg_color="transparent");
         row.pack()
-        tk.Label(row, text="Author: ilukezippo (BoYaqoub)").pack(side="left")
+        ctk.CTkLabel(row, text="Author: ilukezippo (BoYaqoub)").pack(side="left")
         flag = load_flag_image()
         if flag:
             tk.Label(row, image=flag).pack(side="left", padx=(6, 0))
             win._flag = flag
 
         # New line for email contact
-        email_row = ttk.Frame(frame);
+        email_row = ctk.CTkFrame(frame, fg_color="transparent");
         email_row.pack(pady=(6, 0))
-        tk.Label(email_row, text="For any feedback contact: ").pack(side="left")
+        ctk.CTkLabel(email_row, text="For any feedback contact: ").pack(side="left")
 
         email_lbl = tk.Label(email_row, text="ilukezippo@gmail.com",
                              fg="#1a73e8", cursor="hand2", font=("Segoe UI", 9, "underline"))
         email_lbl.pack(side="left")
         email_lbl.bind("<Button-1>", lambda e: webbrowser.open("mailto:ilukezippo@gmail.com"))
 
-        link_row = ttk.Frame(frame);
+        link_row = ctk.CTkFrame(frame, fg_color="transparent");
         link_row.pack(pady=(8, 0))
-        tk.Label(link_row, text="Info and Latest Updates at ").pack(side="left")
+        ctk.CTkLabel(link_row, text="Info and Latest Updates at ").pack(side="left")
         link = tk.Label(link_row, text="https://github.com/ilukezippo/Windows-App-Updater",
                         fg="#1a73e8", cursor="hand2", font=("Segoe UI", 9, "underline"))
         link.pack(side="left");
@@ -1075,10 +1061,10 @@ class WingetUpdaterUI:
                   bd=0, highlightthickness=0, cursor="hand2", relief="flat",
                   command=lambda: webbrowser.open(DONATE_PAGE)).pack(pady=(12, 0))
         # Manual "Check for Update" button
-        ttk.Button(frame, text="Check for Update", command=self.manual_check_for_update, style="Big.TButton").pack(
+        ctk.CTkButton(frame, text="Check for Update", command=self.manual_check_for_update, width=160).pack(
             pady=(6, 6))
 
-        ttk.Button(frame, text="Close", command=win.destroy, style="Big.TButton").pack(pady=(10, 0))
+        ctk.CTkButton(frame, text="Close", command=win.destroy, width=100).pack(pady=(10, 0))
         self.center_child(win)
 
     def center_child(self, tlv):
@@ -1302,16 +1288,16 @@ class WingetUpdaterUI:
     # ===== Loading mini window =====
     def show_loading(self, text="Loading..."):
         if self.loading_win: return
-        w = tk.Toplevel(self.root);
+        w = ctk.CTkToplevel(self.root);
         self.loading_win = w;
         w.transient(self.root);
         w.grab_set();
         w.resizable(False, False);
         apply_icon_to_tlv(w, self.window_icon_path)
-        ttk.Label(w, text=text, font=("Segoe UI", 12, "bold")).pack(padx=20, pady=(16, 8))
-        pb = ttk.Progressbar(w, mode="indeterminate", length=280);
+        ctk.CTkLabel(w, text=text, font=("Segoe UI", 12, "bold")).pack(padx=20, pady=(16, 8))
+        pb = ctk.CTkProgressBar(w, orientation="horizontal", mode="indeterminate", width=280);
         pb.pack(padx=20, pady=(0, 16));
-        pb.start(10)
+        pb.start()
         w.update_idletasks()
         x = self.root.winfo_x() + (self.root.winfo_width() - w.winfo_width()) // 2;
         y = self.root.winfo_y() + (self.root.winfo_height() - w.winfo_height()) // 2
@@ -1331,37 +1317,37 @@ class WingetUpdaterUI:
     def progress_start(self, phase, total):
         self.pb_total = max(0, int(total));
         self.pb_value = 0
-        self.pb.configure(maximum=max(self.pb_total, 1), value=0, mode="determinate")
+        self.pb.configure(mode="determinate"); self.pb.set(0)
         self.pb_label.configure(text=f"Updating: 0/{self.pb_total}")
-        self.pb2.configure(value=0, maximum=100, mode="determinate")
+        self.pb2.configure(mode="determinate"); self.pb2.set(0)
         self.pb2_label.configure(text="Downloading: 0%");
         self.root.update_idletasks()
 
     def progress_step(self, inc=1):
         if self.pb_total <= 0: return
         self.pb_value = min(self.pb_total, self.pb_value + inc);
-        self.pb.configure(value=self.pb_value)
+        self.pb.set(self.pb_value / max(self.pb_total, 1))
         self.pb_label.configure(text=f"Updating: {self.pb_value}/{self.pb_total}");
         self.root.update_idletasks()
 
     def progress_finish(self, canceled=False):
         if getattr(self, "pb_total", 0) > 0:
-            self.pb.configure(value=self.pb_total)
+            self.pb.set(1.0)
             self.pb_label.configure(
                 text=f"Update: {self.pb_total}/{self.pb_total}" + (" (canceled)" if canceled else " (done)"))
         else:
             self.pb_label.configure(text="Update")
         self._spinner_stop("Download");
-        self.pb2.configure(value=0);
+        self.pb2.set(0);
         self.root.update_idletasks()
 
     def per_app_reset(self, name):
-        self.pb2.configure(value=0, maximum=100, mode="determinate"); self._spinner_start("Downloading",
+        self.pb2.configure(mode="determinate"); self.pb2.set(0); self._spinner_start("Downloading",
                                                                                           name); self.root.update_idletasks()
 
     def per_app_update_percent(self, pct, name=None):
         pct = max(0, min(100, int(pct)));
-        self.pb2.configure(value=pct)
+        self.pb2.set(pct / 100.0)
         if name: self._spin_name = name
         self._spinner_set_pct(pct)
         if pct >= 100: self._spinner_stop(f"Download ({self._spin_name}): 100%")
@@ -1582,13 +1568,13 @@ class WingetUpdaterUI:
             code, out, err = run(["winget", "show", "--id", pid, "--accept-source-agreements", "--disable-interactivity"])
             def show():
                 self.hide_loading()
-                win = tk.Toplevel(self.root)
+                win = ctk.CTkToplevel(self.root)
                 win.title(f"App Info - {pid}")
                 win.resizable(True, True)
                 apply_icon_to_tlv(win, self.window_icon_path)
-                frame = ttk.Frame(win, padding=16)
-                frame.pack(fill="both", expand=True)
-                tk.Label(frame, text=pid, font=("Segoe UI", 14, "bold")).pack(anchor="w", pady=(0, 8))
+                frame = ctk.CTkFrame(win)
+                frame.pack(fill="both", expand=True, padx=16, pady=16)
+                ctk.CTkLabel(frame, text=pid, font=("Segoe UI", 14, "bold")).pack(anchor="w", pady=(0, 8))
                 info_box = tk.Text(frame, wrap="word", font=("Consolas", 10), width=70, height=20)
                 sb = ttk.Scrollbar(frame, orient="vertical", command=info_box.yview)
                 info_box.configure(yscrollcommand=sb.set)
@@ -1596,7 +1582,7 @@ class WingetUpdaterUI:
                 sb.pack(side="right", fill="y")
                 info_box.insert("1.0", out if out else (err or "No information available."))
                 info_box.configure(state="disabled")
-                ttk.Button(win, text="Close", command=win.destroy, style="Big.TButton").pack(pady=8)
+                ctk.CTkButton(win, text="Close", command=win.destroy, width=100).pack(pady=8)
                 self.center_child(win)
             self.root.after(0, show)
         threading.Thread(target=worker, daemon=True).start()
@@ -2020,8 +2006,6 @@ class WingetUpdaterUI:
 
     def _apply_search_filter(self):
         query = self.search_var.get().strip().lower()
-        if query == "search...":
-            query = ""
         # Save checked state by package id
         checked_ids = set()
         for item in self.tree.get_children(""):
@@ -2057,6 +2041,8 @@ class WingetUpdaterUI:
 
 # ===================== main =====================
 if __name__ == "__main__":
-    root = tk.Tk()
+    ctk.set_appearance_mode("system")
+    ctk.set_default_color_theme("blue")
+    root = ctk.CTk()
     app = WingetUpdaterUI(root)
     root.mainloop()
