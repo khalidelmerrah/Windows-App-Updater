@@ -14,7 +14,7 @@ def _config_path():
 
 def load_config():
     path = _config_path()
-    defaults = {"exclude_list": [], "include_unknown": False, "dark_mode": False, "check_interval_hours": 0, "window_x": None, "window_y": None}
+    defaults = {"exclude_list": [], "include_unknown": False, "dark_mode": False, "check_interval_hours": 0, "window_x": None, "window_y": None, "update_history": []}
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -387,6 +387,21 @@ def _sanitize_batch_path(p):
     """Remove characters dangerous in batch scripts to prevent command injection."""
     return p.replace('"', '').replace('%', '').replace('^', '').replace('&', '').replace('|', '').replace('<', '').replace('>', '').replace('`', '')
 
+
+THEME_DARK = {
+    "bg": "#1e1e1e", "fg": "#d4d4d4", "entry_bg": "#2d2d2d", "entry_fg": "#d4d4d4",
+    "tree_bg": "#252526", "tree_fg": "#d4d4d4", "tree_sel": "#094771",
+    "button_bg": "#3c3c3c", "log_bg": "#1e1e1e", "log_fg": "#d4d4d4",
+    "ok": "#1b3a1b", "fail": "#3a1b1b", "skip": "#3a3a1b", "cancel": "#3a2a1b", "checked": "#1b2a3a"
+}
+THEME_LIGHT = {
+    "bg": "#f0f0f0", "fg": "#000000", "entry_bg": "#ffffff", "entry_fg": "#000000",
+    "tree_bg": "#ffffff", "tree_fg": "#000000", "tree_sel": "#0078d7",
+    "button_bg": "#e1e1e1", "log_bg": "#ffffff", "log_fg": "#000000",
+    "ok": "#e8f5e9", "fail": "#ffebee", "skip": "#fff8e1", "cancel": "#fff3e0", "checked": "#e3f2fd"
+}
+
+
 class WingetUpdaterUI:
     def __init__(self, root):
         self.root = root;
@@ -462,6 +477,8 @@ class WingetUpdaterUI:
         self.counter_var = tk.StringVar(value="0 apps found • 0 selected")
         self.btn_skip = ttk.Button(row2, text="Skip", command=self.skip_current, style="Big.TButton", state="disabled")
         self.btn_skip.pack(side="left", padx=(12, 0))
+        self.btn_retry = ttk.Button(row2, text="Retry Failed", command=self._retry_failed, style="Big.TButton", state="disabled")
+        self.btn_retry.pack(side="left", padx=(6, 0))
 
         self.search_var = tk.StringVar()
         self.search_entry = ttk.Entry(row2, textvariable=self.search_var, width=20, font=("Segoe UI", 10))
@@ -602,8 +619,27 @@ class WingetUpdaterUI:
         self.log_wrap.columnconfigure(0, weight=1)
         self.log_visible = True
 
+        self.apply_theme()
         self.root.after(0, self.center_on_screen)
         self.root.after(1200, self.check_latest_app_version_async)
+
+    def apply_theme(self):
+        theme = THEME_DARK if self.config.get("dark_mode", False) else THEME_LIGHT
+        self.root.configure(bg=theme["bg"])
+        style = self.style
+        style.configure("TFrame", background=theme["bg"])
+        style.configure("TLabel", background=theme["bg"], foreground=theme["fg"])
+        style.configure("TCheckbutton", background=theme["bg"], foreground=theme["fg"])
+        style.configure("Big.TButton", background=theme["button_bg"])
+        style.configure("Treeview", background=theme["tree_bg"], foreground=theme["tree_fg"],
+                         fieldbackground=theme["tree_bg"])
+        style.configure("Treeview.Heading", background=theme["button_bg"], foreground=theme["fg"])
+        style.map("Treeview", background=[("selected", theme["tree_sel"])])
+        self.log_box.configure(bg=theme["log_bg"], fg=theme["log_fg"], insertbackground=theme["fg"])
+        self.search_entry.configure(style="TEntry")
+        style.configure("TEntry", fieldbackground=theme["entry_bg"], foreground=theme["entry_fg"])
+        for k in ("ok", "fail", "skip", "cancel", "checked"):
+            self.tree.tag_configure(k, background=theme[k])
 
     def manual_check_for_update(self):
         # Show a tiny loader so the About window stays responsive
@@ -854,6 +890,13 @@ class WingetUpdaterUI:
         frame = ttk.Frame(win, padding=16)
         frame.pack(fill="both", expand=True)
         tk.Label(frame, text="Settings", font=("Segoe UI", 14, "bold")).pack(pady=(0, 12))
+        # Dark mode toggle
+        dark_var = tk.BooleanVar(value=self.config.get("dark_mode", False))
+        def toggle_dark(*_):
+            self.config["dark_mode"] = dark_var.get()
+            save_config(self.config)
+            self.apply_theme()
+        ttk.Checkbutton(frame, text="Dark Mode", variable=dark_var, command=toggle_dark).pack(anchor="w", pady=(0, 12))
         # Exclude list
         tk.Label(frame, text="Excluded Apps (won't show in update list):", font=("Segoe UI", 10, "bold")).pack(anchor="w")
         exc_frame = ttk.Frame(frame)
@@ -876,6 +919,16 @@ class WingetUpdaterUI:
                 save_config(self.config)
                 self.log(f"[Settings] Removed {pid} from exclude list")
         ttk.Button(frame, text="Remove Selected", command=remove_selected, style="Big.TButton").pack(pady=(0, 12))
+        # Update history
+        tk.Label(frame, text="Update History (last 10):", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(8, 4))
+        hist_box = tk.Text(frame, height=6, width=50, font=("Consolas", 9), state="disabled")
+        hist_box.pack(fill="x", pady=(0, 8))
+        hist_box.configure(state="normal")
+        for h in reversed(self.config.get("update_history", [])[-10:]):
+            hist_box.insert(tk.END, f"{h['date']}  Total:{h['total']} OK:{h['success']} Fail:{h['failed']} Skip:{h['skipped']}\n")
+        if not self.config.get("update_history"):
+            hist_box.insert(tk.END, "No update history yet.\n")
+        hist_box.configure(state="disabled")
         ttk.Button(frame, text="Close", command=win.destroy, style="Big.TButton").pack()
         self.center_child(win)
 
@@ -1712,6 +1765,19 @@ class WingetUpdaterUI:
                 skip = sum(1 for s in results.values() if s == "skipped")
                 canc = sum(1 for s in results.values() if s == "canceled")
                 self.log(f"Summary → ✅ {ok} Success • ❌ {fail} Failed • ⏭ {skip} Skipped • ❌ {canc} Canceled")
+                import datetime
+                entry = {
+                    "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "total": len(targets),
+                    "success": ok,
+                    "failed": fail,
+                    "skipped": skip,
+                    "canceled": canc,
+                    "apps": {pid: status for pid, status in results.items()}
+                }
+                self.config.setdefault("update_history", []).append(entry)
+                self.config["update_history"] = self.config["update_history"][-50:]
+                save_config(self.config)
                 if fail == 0 and not canceled: play_success_sound()
                 self.cancel_requested = False;
                 self.current_proc = None
@@ -1721,6 +1787,16 @@ class WingetUpdaterUI:
                     pass
                 self._enable_controls_after_update();
                 self.progress_finish(canceled=canceled)
+                if fail > 0:
+                    try:
+                        self.btn_retry.config(state="normal")
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        self.btn_retry.config(state="disabled")
+                    except Exception:
+                        pass
 
             self.root.after(0, done)
 
@@ -1747,6 +1823,20 @@ class WingetUpdaterUI:
         except Exception:
             pass
         self.log("[Skip] Skip requested for current app...")
+
+    def _retry_failed(self):
+        if self.updating:
+            return
+        for it in self.tree.get_children(""):
+            result = self.tree.set(it, "Result")
+            if "Failed" in result:
+                self.checked_items.add(it)
+                self.tree.item(it, image=self.img_checked)
+            else:
+                self.checked_items.discard(it)
+                self.tree.item(it, image=self.img_unchecked)
+        self.update_counter()
+        self.update_selected_async()
 
     def _on_escape(self):
         if self.updating:
