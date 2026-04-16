@@ -28,9 +28,11 @@ A GUI tool for batch-updating installed Windows applications using [winget](http
 
 ## Download
 
-[Download Latest EXE](https://github.com/khalidelmerrah/Windows-App-Updater/releases/latest)
+[**Download Windows-App-Updater.exe (v2.2.2)**](https://github.com/khalidelmerrah/Windows-App-Updater/releases/download/v2.2.2/Windows-App-Updater.exe)
 
-No installation required. Just run the `.exe` file.
+No installation required. Just download and run the `.exe` file.
+
+See all releases: [Releases page](https://github.com/khalidelmerrah/Windows-App-Updater/releases)
 
 ## Requirements
 
