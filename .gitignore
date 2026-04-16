@@ -21,3 +21,14 @@ env/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# App config / runtime
+config.json
+
+# Vault / planning
+.vault/
+.planning/
+
+# Test / debug artifacts
+*.log
+*.part

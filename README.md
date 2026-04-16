@@ -1,13 +1,23 @@
 # Windows App Updater
 
-A GUI tool for batch-updating installed Windows applications using [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/) (Microsoft's package manager).
+A modern GUI tool for batch-updating installed Windows applications using [winget](https://learn.microsoft.com/en-us/windows/package-manager/winget/) (Microsoft's package manager). Built with Python and customtkinter for a native Windows 11 look.
 
 > **Original project by [ilukezippo (BoYaqoub)](https://github.com/ilukezippo/Windows-App-Updater)**
-> This fork adds security hardening, bug fixes, and UI improvements.
+> This fork adds a modern UI, new features, and security hardening.
 
 ![Python](https://img.shields.io/badge/Python-3.12+-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey)
 ![License](https://img.shields.io/badge/License-Freeware-green)
+
+---
+
+## Download
+
+[**Download Windows-App-Updater.exe (v2.4.0)**](https://github.com/khalidelmerrah/Windows-App-Updater/releases/download/v2.4.0/Windows-App-Updater.exe)
+
+No installation required. Just download and run the `.exe` file.
+
+See all releases: [Releases page](https://github.com/khalidelmerrah/Windows-App-Updater/releases)
 
 ---
 
@@ -29,7 +39,8 @@ A GUI tool for batch-updating installed Windows applications using [winget](http
 - **Keyboard shortcuts** - Ctrl+A (select all), Enter (start update), Escape (cancel)
 
 ### Customization
-- **Dark mode** - Full dark theme with live toggle in Settings
+- **Modern UI** - customtkinter with Windows 11 native dark/light theme support
+- **Dark mode** - Follows Windows system theme automatically, or toggle manually in Settings
 - **Exclude list** - Right-click any app to permanently exclude from updates
 - **Portable config** - All settings saved to config.json next to the EXE
 - **Settings dialog** - Central place for all preferences
@@ -49,14 +60,6 @@ A GUI tool for batch-updating installed Windows applications using [winget](http
 - **Success sound** - Plays a sound when all updates complete without errors
 - **Resizable window** - Supports full-screen / maximize with responsive layout
 
-## Download
-
-[**Download Windows-App-Updater.exe (v2.3.0)**](https://github.com/khalidelmerrah/Windows-App-Updater/releases/download/v2.3.0/Windows-App-Updater.exe)
-
-No installation required. Just download and run the `.exe` file.
-
-See all releases: [Releases page](https://github.com/khalidelmerrah/Windows-App-Updater/releases)
-
 ## Requirements
 
 - Windows 10/11
@@ -65,14 +68,14 @@ See all releases: [Releases page](https://github.com/khalidelmerrah/Windows-App-
 ### Running from source
 
 ```bash
-pip install pillow
+pip install pillow customtkinter
 python App-Updater.py
 ```
 
-## Building the EXE
+### Building the EXE
 
 ```bash
-pip install pyinstaller pillow
+pip install pyinstaller pillow customtkinter
 
 pyinstaller --noconfirm --onefile --windowed ^
   --name "Windows-App-Updater" ^
@@ -80,34 +83,64 @@ pyinstaller --noconfirm --onefile --windowed ^
   --add-data "success.wav;." ^
   --add-data "kuwait.png;." ^
   --add-data "windows-updater.ico;." ^
+  --hidden-import customtkinter ^
   App-Updater.py
 ```
 
 Output: `dist/Windows-App-Updater.exe`
 
-## Security Hardening (This Fork)
+## Security Hardening
 
 This fork includes the following security fixes over the original:
 
 ### Critical
-- **Batch script injection prevention** - Paths embedded in the self-update batch script are sanitized to strip dangerous characters (`"`, `%`, `^`, `&`, `|`, `<`, `>`)
-- **Symlink attack protection** - Temp cleanup now rejects symlinks before changing permissions, preventing attackers from using symlinks to modify files outside the temp directory
-- **Download URL validation** - Self-update downloads are restricted to HTTPS URLs from `github.com` and `objects.githubusercontent.com` only. Asset filenames are sanitized to prevent path traversal
+- **Batch script injection prevention** - Self-update paths sanitized to strip dangerous characters
+- **Symlink attack protection** - Temp cleanup rejects symlinks before changing permissions
+- **Download URL validation** - Restricted to HTTPS GitHub URLs only, filenames sanitized against path traversal
 
 ### High
-- **DLL hijacking prevention** - VC runtime checks now use absolute `%WINDIR%\System32` paths instead of bare DLL names, preventing malicious DLLs in the working directory from being loaded
-- **UAC parameter injection fix** - Admin re-launch now uses `subprocess.list2cmdline()` for proper Windows argument escaping instead of manual quoting that could be bypassed with crafted arguments
+- **DLL hijacking prevention** - VC runtime checks use absolute System32 paths
+- **UAC parameter injection fix** - Uses `subprocess.list2cmdline()` for proper argument escaping
 
 ### Medium
-- **Dead code removal** - Removed unused `_download_file_verified` duplicate method
-- **Log memory cap** - Log widget is capped at 5,000 lines to prevent unbounded memory growth during long update sessions
-- **Symlink-safe temp snapshots** - Temp directory scanning uses `os.lstat()` instead of `os.stat()` to avoid following symlinks
-- **Thread safety** - Added `threading.Lock()` for shared state accessed by both the UI thread and worker threads
+- **Dead code removal** - Removed unused duplicate download method
+- **Log memory cap** - Capped at 5,000 lines to prevent unbounded memory growth
+- **Symlink-safe temp snapshots** - Uses `os.lstat()` to avoid following symlinks
+- **Thread safety** - Added `threading.Lock()` for shared state
 
-### UI Fixes
-- **Window maximize** - Removed the `maxsize` constraint that prevented maximizing/full-screen. The app list now expands vertically when the window is resized
+## Changelog
+
+### v2.4.0 - 2026-04-16
+- Modern UI with customtkinter (Windows 11 native dark/light theme)
+- Subtle dark gray buttons with 4px corner radius
+- Treeview, log, and progress bars properly themed for dark mode
+- Settings and About dialogs render on top of main window
+- Smaller checkboxes (13x13) for native feel
+- Loading dialog shows proper title
+
+### v2.3.0 - 2026-04-16
+- Search/filter box to find apps by name or ID
+- Column sorting (click headers)
+- Keyboard shortcuts (Ctrl+A, Enter, Escape)
+- Dark mode with live toggle
+- Exclude list (right-click to exclude apps)
+- Portable config.json for all settings
+- Settings dialog
+- Update history (last 50 sessions)
+- Retry Failed button
+- Scheduled auto-check (1/4/8/24 hours)
+- Windows toast notifications on completion
+- App info popup (right-click or double-click)
+- Export/import installed app list
+- System restore point option before updates
+
+### v2.2.2 - 2026-04-16
+- Security hardening (batch injection, symlink, DLL hijacking, parameter injection fixes)
+- Download URL validation (HTTPS GitHub only)
+- Dead code removal, log cap, thread safety
+- Window maximize fix
 
 ## Credits
 
 - **Original author:** [ilukezippo (BoYaqoub)](https://github.com/ilukezippo/Windows-App-Updater)
-- **Security hardening & fixes:** [khalidelmerrah](https://github.com/khalidelmerrah/Windows-App-Updater)
+- **Security hardening, features & UI:** [khalidelmerrah](https://github.com/khalidelmerrah/Windows-App-Updater)
