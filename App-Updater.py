@@ -620,7 +620,7 @@ class WingetUpdaterUI:
         self.btn_toggle_log.pack(fill="x")
 
         self.btn_save_log = ctk.CTkButton(log_ctrls, text="Save / Export Log",
-                                          command=self.save_export_log, width=160)
+                                          command=self.save_export_log, width=160, **_BTN)
         self.btn_save_log.pack(fill="x", pady=(6, 0))
 
         self.log_wrap = ttk.Frame(self.root, height=LIST_PIXELS);
@@ -654,20 +654,35 @@ class WingetUpdaterUI:
         self._schedule_auto_check()
 
     def apply_theme(self):
-        mode = "dark" if self.config.get("dark_mode", False) else "light"
+        # Follow Windows system theme if user hasn't explicitly set dark_mode
+        if self.config.get("dark_mode", False):
+            mode = "dark"
+        else:
+            mode = "system"
         ctk.set_appearance_mode(mode)
-        # Update tree colors (still tkinter widget)
-        theme = THEME_DARK if mode == "dark" else THEME_LIGHT
+        # Determine actual mode for tkinter widgets
+        is_dark = ctk.get_appearance_mode() == "Dark"
+        theme = THEME_DARK if is_dark else THEME_LIGHT
+        # Tree tags
         self.tree.tag_configure("ok", background=theme["ok"])
         self.tree.tag_configure("fail", background=theme["fail"])
         self.tree.tag_configure("skip", background=theme["skip"])
         self.tree.tag_configure("cancel", background=theme["cancel"])
         self.tree.tag_configure("checked", background=theme["checked"])
+        # Treeview styling
         style = ttk.Style()
-        style.configure("Treeview", background=theme["tree_bg"], foreground=theme["tree_fg"], fieldbackground=theme["tree_bg"])
-        style.configure("Treeview.Heading", background=theme["button_bg"], foreground=theme["fg"])
+        style.configure("Treeview", background=theme["tree_bg"], foreground=theme["tree_fg"],
+                         fieldbackground=theme["tree_bg"], font=("Segoe UI", 10))
+        style.configure("Treeview.Heading", background=theme["button_bg"], foreground=theme["fg"],
+                         font=("Segoe UI", 10, "bold"))
         style.map("Treeview", background=[("selected", theme["tree_sel"])])
+        # Log box
         self.log_box.configure(bg=theme["log_bg"], fg=theme["log_fg"], insertbackground=theme["fg"])
+        # Progress bars - use subtle colors
+        bar_color = "#4a9eff" if is_dark else "#0078d4"
+        bar_bg = "#3b3b3b" if is_dark else "#e0e0e0"
+        self.pb.configure(progress_color=bar_color, fg_color=bar_bg)
+        self.pb2.configure(progress_color=bar_color, fg_color=bar_bg)
 
     def manual_check_for_update(self):
         # Show a tiny loader so the About window stays responsive
@@ -916,20 +931,21 @@ class WingetUpdaterUI:
         win.after(100, lambda: (win.lift(), win.focus_force()))
         win.resizable(False, False)
         apply_icon_to_tlv(win, self.window_icon_path)
-        frame = ctk.CTkFrame(win)
-        frame.pack(fill="both", expand=True, padx=16, pady=16)
-        ctk.CTkLabel(frame, text="Settings", font=("Segoe UI", 14, "bold")).pack(pady=(0, 12))
+        frame = ctk.CTkScrollableFrame(win, width=460, height=520)
+        frame.pack(fill="both", expand=True, padx=12, pady=12)
+        ctk.CTkLabel(frame, text="Settings", font=("Segoe UI", 16, "bold")).pack(pady=(0, 16))
+        is_dark = ctk.get_appearance_mode() == "Dark"
         # Dark mode toggle
         dark_var = tk.BooleanVar(value=self.config.get("dark_mode", False))
         def toggle_dark(*_):
             self.config["dark_mode"] = dark_var.get()
             save_config(self.config)
             self.apply_theme()
-        ctk.CTkCheckBox(frame, text="Dark Mode", variable=dark_var, command=toggle_dark).pack(anchor="w", pady=(0, 12))
+        ctk.CTkCheckBox(frame, text="Dark Mode", variable=dark_var, command=toggle_dark, font=("Segoe UI", 11), corner_radius=3).pack(anchor="w", pady=(0, 12))
         # Auto-check interval
         interval_frame = ctk.CTkFrame(frame, fg_color="transparent")
         interval_frame.pack(anchor="w", pady=(0, 12))
-        ctk.CTkLabel(interval_frame, text="Auto-check interval: ").pack(side="left")
+        ctk.CTkLabel(interval_frame, text="Auto-check interval:", font=("Segoe UI", 11)).pack(side="left")
         interval_var = tk.StringVar(value=str(self.config.get("check_interval_hours", 0)))
         def save_interval(choice):
             try:
@@ -939,35 +955,44 @@ class WingetUpdaterUI:
             self.config["check_interval_hours"] = val
             save_config(self.config)
             self._schedule_auto_check()
-        interval_combo = ctk.CTkComboBox(interval_frame, variable=interval_var, width=100, state="readonly",
-                                          values=["0", "1", "4", "8", "24"], command=save_interval)
-        interval_combo.pack(side="left")
-        ctk.CTkLabel(interval_frame, text=" hours (0 = disabled)").pack(side="left")
+        interval_combo = ctk.CTkComboBox(interval_frame, variable=interval_var, width=80,
+                                          values=["0", "1", "4", "8", "24"], command=save_interval,
+                                          corner_radius=3, font=("Segoe UI", 11))
+        interval_combo.pack(side="left", padx=(8, 4))
+        ctk.CTkLabel(interval_frame, text="hours (0 = off)", font=("Segoe UI", 11)).pack(side="left")
+        # Restore point option
+        rp_var = tk.BooleanVar(value=self.config.get("restore_point", False))
+        def toggle_rp(*_):
+            self.config["restore_point"] = rp_var.get()
+            save_config(self.config)
+        ctk.CTkCheckBox(frame, text="Create restore point before updates (admin)", variable=rp_var, command=toggle_rp, font=("Segoe UI", 11), corner_radius=3).pack(anchor="w", pady=(0, 16))
         # Exclude list
-        ctk.CTkLabel(frame, text="Excluded Apps (won't show in update list):", font=("Segoe UI", 10, "bold")).pack(anchor="w")
-        exc_frame = ctk.CTkFrame(frame, fg_color="transparent")
-        exc_frame.pack(fill="both", pady=(4, 8))
-        exc_list = tk.Listbox(exc_frame, height=8, width=50, font=("Consolas", 10))
-        exc_sb = ttk.Scrollbar(exc_frame, orient="vertical", command=exc_list.yview)
-        exc_list.configure(yscrollcommand=exc_sb.set)
-        exc_list.pack(side="left", fill="both", expand=True)
-        exc_sb.pack(side="right", fill="y")
+        ctk.CTkLabel(frame, text="Excluded Apps", font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 4))
+        exc_box = ctk.CTkTextbox(frame, height=100, font=("Consolas", 10), corner_radius=3)
+        exc_box.pack(fill="x", pady=(0, 4))
+        exc_box.configure(state="normal")
         for pid in self.config.get("exclude_list", []):
-            exc_list.insert(tk.END, pid)
-        def remove_selected():
-            sel = exc_list.curselection()
-            if not sel:
+            exc_box.insert(tk.END, pid + "\n")
+        exc_box.configure(state="disabled")
+        def remove_excluded():
+            try:
+                sel = exc_box.get("sel.first", "sel.last").strip()
+            except tk.TclError:
+                messagebox.showinfo("Remove", "Select an app ID in the list first.")
                 return
-            pid = exc_list.get(sel[0])
-            exc_list.delete(sel[0])
-            if pid in self.config.get("exclude_list", []):
-                self.config["exclude_list"].remove(pid)
+            if sel and sel in self.config.get("exclude_list", []):
+                self.config["exclude_list"].remove(sel)
                 save_config(self.config)
-                self.log(f"[Settings] Removed {pid} from exclude list")
-        ctk.CTkButton(frame, text="Remove Selected", command=remove_selected, width=160).pack(pady=(0, 12))
+                exc_box.configure(state="normal")
+                exc_box.delete("1.0", tk.END)
+                for pid in self.config.get("exclude_list", []):
+                    exc_box.insert(tk.END, pid + "\n")
+                exc_box.configure(state="disabled")
+                self.log(f"[Settings] Removed {sel} from exclude list")
+        ctk.CTkButton(frame, text="Remove Selected", command=remove_excluded, width=160, **_BTN).pack(pady=(0, 16))
         # Update history
-        ctk.CTkLabel(frame, text="Update History (last 10):", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(8, 4))
-        hist_box = tk.Text(frame, height=6, width=50, font=("Consolas", 9), state="disabled")
+        ctk.CTkLabel(frame, text="Update History", font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(0, 4))
+        hist_box = ctk.CTkTextbox(frame, height=80, font=("Consolas", 9), corner_radius=3)
         hist_box.pack(fill="x", pady=(0, 8))
         hist_box.configure(state="normal")
         for h in reversed(self.config.get("update_history", [])[-10:]):
@@ -975,16 +1000,10 @@ class WingetUpdaterUI:
         if not self.config.get("update_history"):
             hist_box.insert(tk.END, "No update history yet.\n")
         hist_box.configure(state="disabled")
-        # Restore point option
-        rp_var = tk.BooleanVar(value=self.config.get("restore_point", False))
-        def toggle_rp(*_):
-            self.config["restore_point"] = rp_var.get()
-            save_config(self.config)
-        ctk.CTkCheckBox(frame, text="Offer restore point before updates (requires admin)", variable=rp_var, command=toggle_rp).pack(anchor="w", pady=(0, 12))
         # Export / Import
-        ctk.CTkLabel(frame, text="App List:", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(8, 4))
+        ctk.CTkLabel(frame, text="App List", font=("Segoe UI", 12, "bold")).pack(anchor="w", pady=(8, 4))
         exp_frame = ctk.CTkFrame(frame, fg_color="transparent")
-        exp_frame.pack(anchor="w", pady=(0, 8))
+        exp_frame.pack(anchor="w", pady=(0, 12))
         def export_apps():
             code, out, err = run(["winget", "list", "--accept-source-agreements", "--disable-interactivity"])
             if not out:
@@ -1020,9 +1039,9 @@ class WingetUpdaterUI:
                 messagebox.showinfo("Import", f"Installed {count} app(s).")
             except Exception as e:
                 messagebox.showerror("Import", str(e))
-        ctk.CTkButton(exp_frame, text="Export Installed Apps", command=export_apps, width=160).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(exp_frame, text="Install from List", command=import_apps, width=140).pack(side="left")
-        ctk.CTkButton(frame, text="Close", command=win.destroy, width=100).pack()
+        ctk.CTkButton(exp_frame, text="Export Installed Apps", command=export_apps, width=180, **_BTN).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(exp_frame, text="Install from List", command=import_apps, width=160, **_BTN).pack(side="left")
+        ctk.CTkButton(frame, text="Close", command=win.destroy, width=120, **_BTN).pack(pady=(8, 0))
         self.center_child(win)
 
     # =================== About ===================
